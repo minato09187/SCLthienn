@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Đặt sân cầu lông - Weplay</title>
+    <link rel="stylesheet" href="style.css">
+    <script type="importmap">
+        {
+            "imports": {
+                "firebase/app": "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js",
+                "firebase/auth": "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js",
+                "firebase/firestore": "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js"
+            }
+        }
+    </script>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>🏸 Đặt Sân Cầu Lông</h1>
+        <div id="authButtons" class="auth-buttons">
+            <button id="showLoginBtn">Đăng nhập</button>
+            <button id="showRegisterBtn">Đăng ký</button>
+        </div>
+        <div id="userInfo" class="user-info" style="display:none">
+            <span>👤 <span id="userNameDisplay"></span></span>
+            <button id="logoutBtn">Đăng xuất</button>
+        </div>
+    </div>
+    
+    <div style="margin:15px 0; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+        <label>📅 Chọn ngày: <input type="date" id="datePicker"></label>
+        <button id="confirmBookingBtn">✅ Xác nhận đặt sân</button>
+    </div>
+    
+    <div id="customerTable"></div>
+</div>
+
+<!-- Modals -->
+<div id="loginModal" class="modal">
+    <div class="modal-content">
+        <h3>Đăng nhập</h3>
+        <input id="loginPhone" placeholder="Số điện thoại">
+        <input id="loginPwd" type="password" placeholder="Mật khẩu">
+        <button id="loginSubmit">Đăng nhập</button>
+        <p>Chưa có tài khoản? <a href="#" id="gotoRegisterLink">Đăng ký ngay</a></p>
+        <button id="closeLoginModal">Đóng</button>
+    </div>
+</div>
+
+<div id="registerModal" class="modal">
+    <div class="modal-content">
+        <h3>Đăng ký</h3>
+        <input id="regName" placeholder="Biệt danh">
+        <input id="regPhone" placeholder="Số điện thoại">
+        <input id="regPwd" type="password" placeholder="Mật khẩu">
+        <input id="regConfirmPwd" type="password" placeholder="Nhập lại mật khẩu">
+        <button id="registerSubmit">Đăng ký</button>
+        <p>Đã có tài khoản? <a href="#" id="gotoLoginLink">Đăng nhập</a></p>
+        <button id="closeRegisterModal">Đóng</button>
+    </div>
+</div>
+
+<div id="toastMsg" class="toast"></div>
+
+<script type="module" src="script.js"></script>
+</body>
+</html>

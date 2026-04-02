@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Quản lý sân cầu lông - Admin</title>
+    <link rel="stylesheet" href="style.css">
+    <script type="importmap">
+        {
+            "imports": {
+                "firebase/app": "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js",
+                "firebase/auth": "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js",
+                "firebase/firestore": "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js"
+            }
+        }
+    </script>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>🎛️ Quản Lý Sân Cầu Lông</h1>
+        <div class="admin-header-right">
+            <div class="notification-bell" id="notifBell">
+                🔔 <span id="notifBadge" class="badge"></span>
+            </div>
+            <button id="adminLogoutBtn" style="background:#ef4444">Đăng xuất</button>
+        </div>
+    </div>
+
+    <!-- Form đăng nhập admin (hiện khi chưa đăng nhập) -->
+    <div id="adminLoginDiv" class="admin-login-box">
+        <h3>🔐 Đăng nhập quản trị</h3>
+        <input type="password" id="adminPassword" placeholder="Nhập mật khẩu quản trị">
+        <button id="adminLoginBtn">Đăng nhập</button>
+    </div>
+
+    <!-- Nội dung admin (hiện sau khi đăng nhập) -->
+    <div id="adminContent" style="display:none">
+        <div class="admin-controls">
+            <div class="date-control">
+                <label>📅 Chọn ngày: <input type="date" id="datePicker"></label>
+            </div>
+            <div class="admin-actions">
+                <button id="toggleDeleteBtn">🗑️ Xóa sân (admin)</button>
+                <button id="confirmDeleteBtn">✔️ Xác nhận xóa</button>
+            </div>
+        </div>
+        
+        <div id="adminTable"></div>
+    </div>
+</div>
+
+<!-- Panel thông báo -->
+<div class="notification-panel" id="notificationPanel"></div>
+
+<div id="toastMsg" class="toast"></div>
+
+<script type="module" src="admin.js"></script>
+</body>
+</html>
