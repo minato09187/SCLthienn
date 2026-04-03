@@ -11,7 +11,7 @@ body {
     padding: 20px;
 }
 
-/* Container chính */
+/* ========== CONTAINER CHUNG ========== */
 .container {
     max-width: 1400px;
     margin: 0 auto;
@@ -21,7 +21,7 @@ body {
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
 }
 
-/* Header */
+/* ========== HEADER ========== */
 .header {
     display: flex;
     justify-content: space-between;
@@ -39,19 +39,13 @@ body {
     align-items: center;
 }
 
-.header-right {
-    display: flex;
-    gap: 15px;
-    align-items: center;
-}
-
 .header h1 {
     color: #1e293b;
     font-size: 1.8rem;
     margin: 0;
 }
 
-/* Nút bấm */
+/* ========== NÚT BẤM CHUNG ========== */
 button, .btn {
     background: #10b981;
     border: none;
@@ -80,7 +74,7 @@ button:disabled {
     transform: none;
 }
 
-/* Nút điều hướng shop */
+/* ========== NÚT ĐIỀU HƯỚNG ========== */
 .shop-nav-btn {
     background: #f59e0b;
     color: white;
@@ -117,7 +111,7 @@ button:disabled {
     transform: translateY(-2px);
 }
 
-/* Auth buttons */
+/* ========== AUTH ========== */
 .auth-buttons {
     display: flex;
     gap: 12px;
@@ -137,11 +131,12 @@ button:disabled {
     color: #1e293b;
 }
 
-/* Bảng đặt sân */
+/* ========== BẢNG ĐẶT SÂN ========== */
 .table-responsive {
     overflow-x: auto;
     border-radius: 16px;
     border: 1px solid #e2e8f0;
+    margin-top: 20px;
 }
 
 .booking-table {
@@ -159,6 +154,7 @@ button:disabled {
     position: sticky;
     top: 0;
     z-index: 10;
+    border: 1px solid #334155;
 }
 
 .booking-table td {
@@ -176,9 +172,9 @@ button:disabled {
     background-color: #eef2ff;
 }
 
+/* ========== TRẠNG THÁI Ô ĐẶT SÂN ========== */
 .booking-cell {
     cursor: pointer;
-    transition: all 0.1s ease;
 }
 
 .available {
@@ -188,7 +184,6 @@ button:disabled {
 
 .available:hover {
     background: #bbf7d0;
-    transform: scale(0.98);
 }
 
 .booked {
@@ -197,14 +192,15 @@ button:disabled {
     cursor: not-allowed;
 }
 
-.admin-booked {
-    background: #22c55e;
-    color: white;
-    cursor: pointer;
+.temp-selected {
+    background: #fef3c7 !important;
+    color: #d97706 !important;
 }
 
-.admin-booked:hover {
-    background: #16a34a;
+.pending {
+    background: #fed7aa !important;
+    color: #9a3412 !important;
+    cursor: default;
 }
 
 .past-date {
@@ -213,7 +209,22 @@ button:disabled {
     cursor: default;
 }
 
-/* Modal */
+/* ========== ADMIN TABLE ========== */
+.admin-booked {
+    background: #22c55e !important;
+    color: white;
+}
+
+.admin-pending {
+    background: #f97316 !important;
+    color: white;
+}
+
+.admin-pending button {
+    margin: 2px;
+}
+
+/* ========== MODAL ========== */
 .modal {
     display: none;
     position: fixed;
@@ -262,7 +273,6 @@ button:disabled {
     border-radius: 30px;
     border: 1px solid #cbd5e1;
     font-size: 14px;
-    transition: border 0.2s;
 }
 
 .modal-content input:focus {
@@ -287,11 +297,7 @@ button:disabled {
     font-weight: bold;
 }
 
-.modal-content a:hover {
-    text-decoration: underline;
-}
-
-/* Admin */
+/* ========== ADMIN LOGIN ========== */
 .admin-login-box {
     background: #f1f5f9;
     padding: 40px;
@@ -321,6 +327,7 @@ button:disabled {
     align-items: center;
 }
 
+/* ========== ADMIN TABS ========== */
 .admin-tabs {
     display: flex;
     gap: 12px;
@@ -337,6 +344,7 @@ button:disabled {
     border-radius: 40px;
     cursor: pointer;
     font-weight: 600;
+    border: none;
     transition: all 0.2s;
 }
 
@@ -361,25 +369,7 @@ button:disabled {
     gap: 15px;
 }
 
-.date-control label {
-    font-weight: 600;
-    color: #1e293b;
-}
-
-.date-control input {
-    padding: 8px 12px;
-    border-radius: 30px;
-    border: 1px solid #cbd5e1;
-    margin-left: 10px;
-}
-
-.admin-actions {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-}
-
-/* Shop - Product Grid */
+/* ========== SHOP - PRODUCT GRID ========== */
 .products-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -426,7 +416,7 @@ button:disabled {
     margin-top: 12px;
 }
 
-/* Category tabs */
+/* ========== CATEGORY TABS ========== */
 .category-tabs {
     display: flex;
     gap: 12px;
@@ -445,7 +435,7 @@ button:disabled {
     color: white;
 }
 
-/* Cart */
+/* ========== CART ========== */
 .cart-icon {
     background: #f59e0b;
     position: relative;
@@ -504,7 +494,7 @@ button:disabled {
     margin: 10px 0;
 }
 
-/* Shop Manager (Admin) */
+/* ========== SHOP MANAGER (ADMIN) ========== */
 .shop-manager {
     background: #f8fafc;
     padding: 24px;
@@ -593,7 +583,7 @@ button:disabled {
     width: 90px;
 }
 
-/* Orders */
+/* ========== ORDERS ========== */
 .order-item {
     background: white;
     padding: 20px;
@@ -641,7 +631,7 @@ button:disabled {
     color: #f59e0b;
 }
 
-/* Notification */
+/* ========== NOTIFICATION ========== */
 .notification-bell {
     position: relative;
     cursor: pointer;
@@ -674,15 +664,15 @@ button:disabled {
     z-index: 200;
     max-height: 500px;
     overflow-y: auto;
-    padding: 16px;
+    padding: 0;
 }
 
 .notif-item {
     padding: 14px;
     border-bottom: 1px solid #e2e8f0;
     cursor: pointer;
-    border-radius: 12px;
-    margin-bottom: 8px;
+    border-radius: 0;
+    margin-bottom: 0;
     transition: background 0.2s;
 }
 
@@ -695,7 +685,7 @@ button:disabled {
     border-left: 4px solid #ef4444;
 }
 
-/* Toast message */
+/* ========== TOAST MESSAGE ========== */
 .toast {
     position: fixed;
     bottom: 30px;
@@ -722,7 +712,19 @@ button:disabled {
     }
 }
 
-/* Responsive */
+/* ========== DATE CONTROL ========== */
+.date-control {
+    margin-bottom: 20px;
+}
+
+.date-control input {
+    padding: 8px 12px;
+    border-radius: 20px;
+    border: 1px solid #cbd5e1;
+    margin-left: 10px;
+}
+
+/* ========== RESPONSIVE ========== */
 @media (max-width: 768px) {
     body {
         padding: 10px;
@@ -803,36 +805,4 @@ button:disabled {
         flex-direction: column;
         text-align: center;
     }
-}
-
-.booking-cell.temp-selected {
-    background: #fef3c7;
-    color: #d97706;
-    cursor: pointer;
-}
-
-.booking-cell.temp-selected:hover {
-    background: #fde68a;
-}
-.booking-cell.pending {
-    background: #fed7aa !important;
-    color: #9a3412 !important;
-    cursor: default;
-}
-
-/* Trạng thái admin chờ duyệt */
-.admin-pending {
-    background: #f97316 !important;
-    color: white !important;
-}
-
-.admin-pending button {
-    margin: 2px;
-    border: none;
-    border-radius: 20px;
-    cursor: pointer;
-}
-
-.confirm-btn:hover, .cancel-btn:hover {
-    opacity: 0.8;
 }
