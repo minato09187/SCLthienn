@@ -1,15 +1,14 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, doc, getDoc, getDocs, updateDoc, deleteDoc, query, where, addDoc, setDoc, onSnapshot, orderBy } from "firebase/firestore";
 
-// Firebase config
 const firebaseConfig = {
-  apiKey: "AIzaSyB82QdjDo-glKNndiGtawo0SArTGVZrbqw",
-  authDomain: "sclthienn-ebd45.firebaseapp.com",
-  projectId: "sclthienn-ebd45",
-  storageBucket: "sclthienn-ebd45.firebasestorage.app",
-  messagingSenderId: "171574896796",
-  appId: "1:171574896796:web:12a0c4d00952ace6886559",
-  measurementId: "G-WJB7KFH28M"
+    apiKey: "AIzaSyB82QdjDo-glKNndiGtawo0SArTGVZrbqw",
+    authDomain: "sclthienn-ebd45.firebaseapp.com",
+    projectId: "sclthienn-ebd45",
+    storageBucket: "sclthienn-ebd45.firebasestorage.app",
+    messagingSenderId: "171574896796",
+    appId: "1:171574896796:web:12a0c4d00952ace6886559",
+    measurementId: "G-WJB7KFH28M"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -21,7 +20,6 @@ window.selectedDate = new Date().toISOString().split('T')[0];
 window.courtsCount = 6;
 window.timeSlots = [];
 
-// Tạo danh sách khung giờ từ 0h đến 24h
 for (let i = 0; i < 24; i++) {
     let start = i.toString().padStart(2, '0') + ":00";
     let end = (i + 1).toString().padStart(2, '0') + ":00";
@@ -36,7 +34,6 @@ window.showToast = (msg, isError = false) => {
     setTimeout(() => toast.style.display = 'none', 3000);
 };
 
-// ========== QUẢN LÝ SÂN ==========
 async function renderAdminTable() {
     const container = document.getElementById("adminTable");
     if (!container || !window.adminLoggedIn) return;
@@ -57,15 +54,12 @@ async function renderAdminTable() {
         }
     });
     
-    // Tạo header bảng - chỉ hiển thị 24 cột giờ
-    let html = `<div class="table-responsive"><table class="booking-table"><thead>`;
-    html += `<tr><th>Giờ / Sân</th>`;
+    let html = `<div class="table-responsive"><table class="booking-table"><thead><tr><th>Giờ / Sân</th>`;
     for (let i = 0; i < window.timeSlots.length; i++) {
         html += `<th>${window.timeSlots[i]}</th>`;
     }
     html += `</tr></thead><tbody>`;
     
-    // Tạo 6 sân
     for (let c = 1; c <= window.courtsCount; c++) {
         html += `<tr><td class="court-label">Sân ${c}</td>`;
         for (let h = 0; h < window.timeSlots.length; h++) {
@@ -97,7 +91,6 @@ async function renderAdminTable() {
     html += `</tbody></table></div>`;
     container.innerHTML = html;
     
-    // Gắn sự kiện cho nút duyệt/từ chối
     document.querySelectorAll(".confirm-btn").forEach(btn => {
         btn.onclick = async (e) => {
             e.stopPropagation();
@@ -163,7 +156,6 @@ async function deleteSlot(key) {
     }
 }
 
-// ========== QUẢN LÝ SHOP ==========
 async function loadProducts() {
     const container = document.getElementById("productsList");
     if (!container) return;
@@ -252,7 +244,6 @@ async function addProduct() {
     loadProducts();
 }
 
-// ========== QUẢN LÝ ĐƠN HÀNG ==========
 async function loadOrders() {
     const container = document.getElementById("ordersList");
     if (!container) return;
@@ -299,7 +290,6 @@ window.deleteOrder = async (id) => {
     }
 };
 
-// ========== THÔNG BÁO ==========
 function loadNotifications() {
     const notifList = document.getElementById("notificationPanel");
     if (!notifList) return;
@@ -351,7 +341,6 @@ function startNotificationListener() {
     });
 }
 
-// ========== ADMIN AUTH ==========
 async function adminLogin() {
     const pwdInput = document.getElementById("adminPassword").value;
     const settingsRef = doc(db, "settings", "admin");
@@ -381,7 +370,6 @@ function adminLogout() {
     window.showToast("Đã đăng xuất admin");
 }
 
-// ========== KHỞI TẠO ==========
 function initDatePicker() {
     const datePicker = document.getElementById("datePicker");
     if (datePicker) {

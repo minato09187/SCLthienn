@@ -1,16 +1,15 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore, collection, doc, getDoc, getDocs, updateDoc, addDoc, query, where } from "firebase/firestore";
+import { getFirestore, collection, doc, getDoc, getDocs, updateDoc, addDoc, query, where, setDoc } from "firebase/firestore";
 
-// Firebase config - THAY BẰNG CONFIG CỦA BẠN
 const firebaseConfig = {
-  apiKey: "AIzaSyB82QdjDo-glKNndiGtawo0SArTGVZrbqw",
-  authDomain: "sclthienn-ebd45.firebaseapp.com",
-  projectId: "sclthienn-ebd45",
-  storageBucket: "sclthienn-ebd45.firebasestorage.app",
-  messagingSenderId: "171574896796",
-  appId: "1:171574896796:web:12a0c4d00952ace6886559",
-  measurementId: "G-WJB7KFH28M"
+    apiKey: "AIzaSyB82QdjDo-glKNndiGtawo0SArTGVZrbqw",
+    authDomain: "sclthienn-ebd45.firebaseapp.com",
+    projectId: "sclthienn-ebd45",
+    storageBucket: "sclthienn-ebd45.firebasestorage.app",
+    messagingSenderId: "171574896796",
+    appId: "1:171574896796:web:12a0c4d00952ace6886559",
+    measurementId: "G-WJB7KFH28M"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -21,7 +20,6 @@ let currentUser = null;
 let currentCategory = "shuttlecock";
 let cart = JSON.parse(localStorage.getItem("cart") || "{}");
 
-// Hiển thị toast
 function showToast(msg, isError = false) {
     const toast = document.getElementById("toastMsg");
     toast.textContent = msg;
@@ -30,7 +28,14 @@ function showToast(msg, isError = false) {
     setTimeout(() => toast.style.display = "none", 3000);
 }
 
-// Lấy sản phẩm từ Firebase
+// Kiểm tra mật khẩu mạnh
+function isStrongPassword(password) {
+    if (password.length < 6) return false;
+    const hasLetter = /[a-zA-Z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    return hasLetter && hasNumber;
+}
+
 async function loadProducts(category) {
     const container = document.getElementById("productsContainer");
     if (!container) return;
@@ -62,14 +67,11 @@ async function loadProducts(category) {
         });
         container.innerHTML = html;
     } catch (error) {
-        console.error("Lỗi tải sản phẩm:", error);
         container.innerHTML = "<p style='text-align:center; padding:40px; color:red;'>Lỗi tải sản phẩm!</p>";
     }
 }
 
-// Thêm vào giỏ hàng (CÓ KIỂM TRA ĐĂNG NHẬP)
 window.addToCart = (id, name, price, stock) => {
-    // KIỂM TRA ĐĂNG NHẬP
     if (!currentUser) {
         showToast("⚠️ Vui lòng đăng nhập để mua hàng!", true);
         document.getElementById("loginModal").style.display = "flex";
@@ -95,7 +97,6 @@ window.addToCart = (id, name, price, stock) => {
     showToast(`✅ Đã thêm ${name} vào giỏ hàng!`);
 };
 
-// Cập nhật UI giỏ hàng
 function updateCartUI() {
     const cartCount = Object.values(cart).reduce((sum, item) => sum + item.quantity, 0);
     const cartCountSpan = document.getElementById("cartCount");
@@ -130,7 +131,6 @@ function updateCartUI() {
     document.getElementById("cartTotal").textContent = total.toLocaleString();
 }
 
-// Cập nhật số lượng
 window.updateQuantity = (id, delta) => {
     if (!cart[id]) return;
     const newQty = cart[id].quantity + delta;
@@ -146,7 +146,6 @@ window.updateQuantity = (id, delta) => {
     updateCartUI();
 };
 
-// Xóa khỏi giỏ
 window.removeFromCart = (id) => {
     delete cart[id];
     localStorage.setItem("cart", JSON.stringify(cart));
@@ -154,9 +153,7 @@ window.removeFromCart = (id) => {
     showToast("Đã xóa sản phẩm khỏi giỏ hàng");
 };
 
-// Xác nhận đơn hàng (CÓ KIỂM TRA ĐĂNG NHẬP)
 async function submitOrder(address) {
-    // KIỂM TRA ĐĂNG NHẬP
     if (!currentUser) {
         showToast("⚠️ Vui lòng đăng nhập để đặt hàng!", true);
         document.getElementById("loginModal").style.display = "flex";
@@ -168,7 +165,6 @@ async function submitOrder(address) {
         return;
     }
     
-    // Kiểm tra tồn kho lần cuối
     for (const item of Object.values(cart)) {
         const productRef = doc(db, "products", item.id);
         const productSnap = await getDoc(productRef);
@@ -178,7 +174,6 @@ async function submitOrder(address) {
         }
     }
     
-    // Trừ số lượng trong kho
     for (const item of Object.values(cart)) {
         const productRef = doc(db, "products", item.id);
         const productSnap = await getDoc(productRef);
@@ -186,7 +181,6 @@ async function submitOrder(address) {
         await updateDoc(productRef, { stock: newStock });
     }
     
-    // Lưu đơn hàng
     const order = {
         userName: currentUser.displayName,
         userPhone: currentUser.phoneNumber,
@@ -203,7 +197,6 @@ async function submitOrder(address) {
     
     await addDoc(collection(db, "orders"), order);
     
-    // Xóa giỏ hàng
     cart = {};
     localStorage.setItem("cart", JSON.stringify(cart));
     updateCartUI();
@@ -219,8 +212,24 @@ async function register() {
     const pwd = document.getElementById("regPwd").value;
     const confirmPwd = document.getElementById("regConfirmPwd").value;
     
-    if (!nickname || !phone || !pwd) {
-        showToast("Vui lòng nhập đầy đủ thông tin", true);
+    if (!nickname) {
+        showToast("Vui lòng nhập biệt danh!", true);
+        return;
+    }
+    if (!phone) {
+        showToast("Vui lòng nhập số điện thoại!", true);
+        return;
+    }
+    if (!phone.match(/^\d{10,11}$/)) {
+        showToast("Số điện thoại không hợp lệ (10-11 số)!", true);
+        return;
+    }
+    if (!pwd) {
+        showToast("Vui lòng nhập mật khẩu!", true);
+        return;
+    }
+    if (!isStrongPassword(pwd)) {
+        showToast("Mật khẩu phải có ít nhất 6 ký tự, gồm chữ và số!", true);
         return;
     }
     if (pwd !== confirmPwd) {
@@ -229,19 +238,28 @@ async function register() {
     }
     
     const usersRef = collection(db, "users");
-    const q = query(usersRef, where("phone", "==", phone));
-    const snap = await getDocs(q);
-    if (!snap.empty) {
-        showToast("Số điện thoại đã được đăng ký!", true);
+    
+    const nameQuery = query(usersRef, where("name", "==", nickname));
+    const nameSnap = await getDocs(nameQuery);
+    if (!nameSnap.empty) {
+        showToast("Biệt danh này đã có người sử dụng!", true);
         return;
     }
     
-    await setDoc(doc(db, "users", phone), {
+    const phoneQuery = query(usersRef, where("phone", "==", phone));
+    const phoneSnap = await getDocs(phoneQuery);
+    if (!phoneSnap.empty) {
+        showToast("Số điện thoại này đã được đăng ký!", true);
+        return;
+    }
+    
+    await setDoc(doc(usersRef, phone), {
         name: nickname,
         phone: phone,
         password: pwd,
         createdAt: new Date()
     });
+    
     showToast("Đăng ký thành công! Vui lòng đăng nhập.");
     closeModals();
     document.getElementById("loginModal").style.display = "flex";
@@ -309,20 +327,32 @@ function closeModals() {
     document.getElementById("addressModal").style.display = "none";
 }
 
-// ========== KHỞI TẠO ==========
+// Khởi tạo
 window.onload = () => {
-    // Khôi phục user
     const savedUser = localStorage.getItem("currentUser");
     if (savedUser) {
         currentUser = JSON.parse(savedUser);
         updateAuthUI();
     }
     
-    // Tải sản phẩm
     loadProducts("shuttlecock");
     updateCartUI();
     
-    // Category tabs
+    // Nút hiện mật khẩu
+    const togglePasswordBtn = document.getElementById("togglePasswordBtn");
+    const loginPwdInput = document.getElementById("loginPwd");
+    if (togglePasswordBtn && loginPwdInput) {
+        togglePasswordBtn.onclick = () => {
+            if (loginPwdInput.type === "password") {
+                loginPwdInput.type = "text";
+                togglePasswordBtn.textContent = "🙈";
+            } else {
+                loginPwdInput.type = "password";
+                togglePasswordBtn.textContent = "👁️";
+            }
+        };
+    }
+    
     document.querySelectorAll(".category-btn").forEach(btn => {
         btn.onclick = () => {
             document.querySelectorAll(".category-btn").forEach(b => b.classList.remove("active"));
@@ -332,14 +362,11 @@ window.onload = () => {
         };
     });
     
-    // Cart modal
     document.getElementById("cartBtn").onclick = () => {
         updateCartUI();
         document.getElementById("cartModal").style.display = "flex";
     };
     document.getElementById("closeCartBtn").onclick = () => document.getElementById("cartModal").style.display = "none";
-    
-    // Checkout
     document.getElementById("checkoutBtn").onclick = () => {
         document.getElementById("cartModal").style.display = "none";
         document.getElementById("addressModal").style.display = "flex";
@@ -354,7 +381,6 @@ window.onload = () => {
     };
     document.getElementById("closeAddressBtn").onclick = () => document.getElementById("addressModal").style.display = "none";
     
-    // Auth modals
     document.getElementById("showLoginBtn").onclick = () => document.getElementById("loginModal").style.display = "flex";
     document.getElementById("showRegisterBtn").onclick = () => document.getElementById("registerModal").style.display = "flex";
     document.getElementById("closeLoginModal").onclick = closeModals;
@@ -365,6 +391,3 @@ window.onload = () => {
     document.getElementById("gotoLoginLink").onclick = (e) => { e.preventDefault(); closeModals(); document.getElementById("loginModal").style.display = "flex"; };
     document.getElementById("logoutBtn").onclick = logout;
 };
-
-// Import setDoc cho register
-import { setDoc } from "firebase/firestore";

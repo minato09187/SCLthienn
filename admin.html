@@ -30,31 +30,26 @@
         </div>
     </div>
 
-    <!-- Form đăng nhập admin -->
     <div id="adminLoginDiv" class="admin-login-box">
         <h3>🔐 Đăng nhập quản trị</h3>
         <input type="password" id="adminPassword" placeholder="Nhập mật khẩu quản trị">
         <button id="adminLoginBtn">Đăng nhập</button>
     </div>
 
-    <!-- Nội dung admin -->
     <div id="adminContent" style="display:none">
-        <!-- Tab menu -->
         <div class="admin-tabs">
             <button class="admin-tab active" data-tab="courts">🏸 Quản lý sân</button>
             <button class="admin-tab" data-tab="shop">🛒 Quản lý shop</button>
             <button class="admin-tab" data-tab="orders">📦 Quản lý đơn hàng</button>
         </div>
 
-        <!-- Tab Quản lý sân -->
         <div id="courtsTab" class="admin-tab-content active">
-            <div class="date-control" style="margin-bottom: 20px;">
+            <div class="date-control">
                 <label>📅 Chọn ngày: <input type="date" id="datePicker"></label>
             </div>
             <div id="adminTable"></div>
         </div>
 
-        <!-- Tab Quản lý shop -->
         <div id="shopTab" class="admin-tab-content" style="display:none">
             <div class="shop-manager">
                 <div class="add-product-form">
@@ -73,7 +68,6 @@
                         <button id="addProductBtn">➕ Thêm sản phẩm</button>
                     </div>
                 </div>
-                
                 <div class="product-list">
                     <h3>📦 Danh sách sản phẩm</h3>
                     <div id="productsList"></div>
@@ -81,7 +75,6 @@
             </div>
         </div>
 
-        <!-- Tab Quản lý đơn hàng -->
         <div id="ordersTab" class="admin-tab-content" style="display:none">
             <div class="orders-manager">
                 <h3>📋 Đơn hàng chờ xử lý</h3>
@@ -91,11 +84,7 @@
     </div>
 </div>
 
-<!-- Panel thông báo -->
-<div class="notification-panel" id="notificationPanel">
-    <div style="padding: 12px;">Đang tải thông báo...</div>
-</div>
-
+<div class="notification-panel" id="notificationPanel"></div>
 <div id="toastMsg" class="toast"></div>
 
 <script type="module" src="admin.js"></script>

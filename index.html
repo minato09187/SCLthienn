@@ -1,4 +1,4 @@
-<<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
@@ -41,24 +41,28 @@
     <div id="customerTable"></div>
 </div>
 
-<!-- Modals -->
+<!-- Modal đăng nhập -->
 <div id="loginModal" class="modal">
     <div class="modal-content">
         <h3>🔐 Đăng nhập</h3>
         <input id="loginPhone" placeholder="Số điện thoại">
-        <input id="loginPwd" type="password" placeholder="Mật khẩu">
+        <div style="position: relative;">
+            <input id="loginPwd" type="password" placeholder="Mật khẩu" style="padding-right: 50px; width: 100%;">
+            <button type="button" id="togglePasswordBtn" style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); background: none; border: none; font-size: 18px; cursor: pointer; padding: 5px 10px;">👁️</button>
+        </div>
         <button id="loginSubmit">Đăng nhập</button>
         <p>Chưa có tài khoản? <a href="#" id="gotoRegisterLink">Đăng ký ngay</a></p>
         <button id="closeLoginModal">Đóng</button>
     </div>
 </div>
 
+<!-- Modal đăng ký -->
 <div id="registerModal" class="modal">
     <div class="modal-content">
         <h3>📝 Đăng ký</h3>
         <input id="regName" placeholder="Biệt danh">
-        <input id="regPhone" placeholder="Số điện thoại">
-        <input id="regPwd" type="password" placeholder="Mật khẩu">
+        <input id="regPhone" placeholder="Số điện thoại (10-11 số)">
+        <input id="regPwd" type="password" placeholder="Mật khẩu (6+ ký tự, gồm chữ và số)">
         <input id="regConfirmPwd" type="password" placeholder="Nhập lại mật khẩu">
         <button id="registerSubmit">Đăng ký</button>
         <p>Đã có tài khoản? <a href="#" id="gotoLoginLink">Đăng nhập</a></p>
