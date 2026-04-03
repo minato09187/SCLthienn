@@ -28,7 +28,6 @@ function showToast(msg, isError = false) {
     setTimeout(() => toast.style.display = "none", 3000);
 }
 
-// Kiểm tra mật khẩu mạnh
 function isStrongPassword(password) {
     if (password.length < 6) return false;
     const hasLetter = /[a-zA-Z]/.test(password);
@@ -67,6 +66,7 @@ async function loadProducts(category) {
         });
         container.innerHTML = html;
     } catch (error) {
+        console.error("Lỗi tải sản phẩm:", error);
         container.innerHTML = "<p style='text-align:center; padding:40px; color:red;'>Lỗi tải sản phẩm!</p>";
     }
 }
@@ -165,6 +165,7 @@ async function submitOrder(address) {
         return;
     }
     
+    // Kiểm tra tồn kho lần cuối
     for (const item of Object.values(cart)) {
         const productRef = doc(db, "products", item.id);
         const productSnap = await getDoc(productRef);
@@ -174,6 +175,7 @@ async function submitOrder(address) {
         }
     }
     
+    // Trừ số lượng trong kho
     for (const item of Object.values(cart)) {
         const productRef = doc(db, "products", item.id);
         const productSnap = await getDoc(productRef);
@@ -181,6 +183,7 @@ async function submitOrder(address) {
         await updateDoc(productRef, { stock: newStock });
     }
     
+    // Tạo đơn hàng với trường adminRead = false
     const order = {
         userName: currentUser.displayName,
         userPhone: currentUser.phoneNumber,
@@ -192,11 +195,13 @@ async function submitOrder(address) {
         })),
         total: Object.values(cart).reduce((sum, item) => sum + item.price * item.quantity, 0),
         createdAt: new Date(),
-        status: "pending"
+        status: "pending",
+        adminRead: false  // Đánh dấu admin chưa đọc đơn hàng này
     };
     
     await addDoc(collection(db, "orders"), order);
     
+    // Xóa giỏ hàng
     cart = {};
     localStorage.setItem("cart", JSON.stringify(cart));
     updateCartUI();
@@ -239,6 +244,7 @@ async function register() {
     
     const usersRef = collection(db, "users");
     
+    // Kiểm tra biệt danh đã tồn tại
     const nameQuery = query(usersRef, where("name", "==", nickname));
     const nameSnap = await getDocs(nameQuery);
     if (!nameSnap.empty) {
@@ -246,6 +252,7 @@ async function register() {
         return;
     }
     
+    // Kiểm tra số điện thoại đã tồn tại
     const phoneQuery = query(usersRef, where("phone", "==", phone));
     const phoneSnap = await getDocs(phoneQuery);
     if (!phoneSnap.empty) {
@@ -327,7 +334,7 @@ function closeModals() {
     document.getElementById("addressModal").style.display = "none";
 }
 
-// Khởi tạo
+// ========== KHỞI TẠO ==========
 window.onload = () => {
     const savedUser = localStorage.getItem("currentUser");
     if (savedUser) {
@@ -338,7 +345,7 @@ window.onload = () => {
     loadProducts("shuttlecock");
     updateCartUI();
     
-    // Nút hiện mật khẩu
+    // Nút hiện/ẩn mật khẩu
     const togglePasswordBtn = document.getElementById("togglePasswordBtn");
     const loginPwdInput = document.getElementById("loginPwd");
     if (togglePasswordBtn && loginPwdInput) {
@@ -353,6 +360,43 @@ window.onload = () => {
         };
     }
     
+    // Sự kiện Enter cho đăng nhập
+    const loginPhoneInput = document.getElementById("loginPhone");
+    if (loginPhoneInput) {
+        loginPhoneInput.addEventListener("keypress", (e) => {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                document.getElementById("loginSubmit").click();
+            }
+        });
+    }
+    if (loginPwdInput) {
+        loginPwdInput.addEventListener("keypress", (e) => {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                document.getElementById("loginSubmit").click();
+            }
+        });
+    }
+    
+    // Sự kiện Enter cho đăng ký
+    const regNameInput = document.getElementById("regName");
+    const regPhoneInput = document.getElementById("regPhone");
+    const regPwdInput = document.getElementById("regPwd");
+    const regConfirmPwdInput = document.getElementById("regConfirmPwd");
+    const registerInputs = [regNameInput, regPhoneInput, regPwdInput, regConfirmPwdInput];
+    registerInputs.forEach(input => {
+        if (input) {
+            input.addEventListener("keypress", (e) => {
+                if (e.key === "Enter") {
+                    e.preventDefault();
+                    document.getElementById("registerSubmit").click();
+                }
+            });
+        }
+    });
+    
+    // Category tabs
     document.querySelectorAll(".category-btn").forEach(btn => {
         btn.onclick = () => {
             document.querySelectorAll(".category-btn").forEach(b => b.classList.remove("active"));
@@ -362,32 +406,68 @@ window.onload = () => {
         };
     });
     
-    document.getElementById("cartBtn").onclick = () => {
-        updateCartUI();
-        document.getElementById("cartModal").style.display = "flex";
-    };
-    document.getElementById("closeCartBtn").onclick = () => document.getElementById("cartModal").style.display = "none";
-    document.getElementById("checkoutBtn").onclick = () => {
-        document.getElementById("cartModal").style.display = "none";
-        document.getElementById("addressModal").style.display = "flex";
-    };
-    document.getElementById("submitOrderBtn").onclick = () => {
-        const address = document.getElementById("addressInput").value;
-        if (!address) {
-            showToast("Vui lòng nhập địa chỉ giao hàng!", true);
-            return;
-        }
-        submitOrder(address);
-    };
-    document.getElementById("closeAddressBtn").onclick = () => document.getElementById("addressModal").style.display = "none";
+    // Cart events
+    const cartBtn = document.getElementById("cartBtn");
+    const closeCartBtn = document.getElementById("closeCartBtn");
+    const checkoutBtn = document.getElementById("checkoutBtn");
+    const submitOrderBtn = document.getElementById("submitOrderBtn");
+    const closeAddressBtn = document.getElementById("closeAddressBtn");
     
-    document.getElementById("showLoginBtn").onclick = () => document.getElementById("loginModal").style.display = "flex";
-    document.getElementById("showRegisterBtn").onclick = () => document.getElementById("registerModal").style.display = "flex";
-    document.getElementById("closeLoginModal").onclick = closeModals;
-    document.getElementById("closeRegisterModal").onclick = closeModals;
-    document.getElementById("loginSubmit").onclick = login;
-    document.getElementById("registerSubmit").onclick = register;
-    document.getElementById("gotoRegisterLink").onclick = (e) => { e.preventDefault(); closeModals(); document.getElementById("registerModal").style.display = "flex"; };
-    document.getElementById("gotoLoginLink").onclick = (e) => { e.preventDefault(); closeModals(); document.getElementById("loginModal").style.display = "flex"; };
-    document.getElementById("logoutBtn").onclick = logout;
+    if (cartBtn) {
+        cartBtn.onclick = () => {
+            updateCartUI();
+            document.getElementById("cartModal").style.display = "flex";
+        };
+    }
+    if (closeCartBtn) closeCartBtn.onclick = () => document.getElementById("cartModal").style.display = "none";
+    if (checkoutBtn) {
+        checkoutBtn.onclick = () => {
+            document.getElementById("cartModal").style.display = "none";
+            document.getElementById("addressModal").style.display = "flex";
+        };
+    }
+    if (submitOrderBtn) {
+        submitOrderBtn.onclick = () => {
+            const address = document.getElementById("addressInput").value;
+            if (!address) {
+                showToast("Vui lòng nhập địa chỉ giao hàng!", true);
+                return;
+            }
+            submitOrder(address);
+        };
+    }
+    if (closeAddressBtn) closeAddressBtn.onclick = () => document.getElementById("addressModal").style.display = "none";
+    
+    // Auth events
+    const showLoginBtn = document.getElementById("showLoginBtn");
+    const showRegisterBtn = document.getElementById("showRegisterBtn");
+    const closeLoginModal = document.getElementById("closeLoginModal");
+    const closeRegisterModal = document.getElementById("closeRegisterModal");
+    const loginSubmit = document.getElementById("loginSubmit");
+    const registerSubmit = document.getElementById("registerSubmit");
+    const gotoRegisterLink = document.getElementById("gotoRegisterLink");
+    const gotoLoginLink = document.getElementById("gotoLoginLink");
+    const logoutBtn = document.getElementById("logoutBtn");
+    
+    if (showLoginBtn) showLoginBtn.onclick = () => document.getElementById("loginModal").style.display = "flex";
+    if (showRegisterBtn) showRegisterBtn.onclick = () => document.getElementById("registerModal").style.display = "flex";
+    if (closeLoginModal) closeLoginModal.onclick = closeModals;
+    if (closeRegisterModal) closeRegisterModal.onclick = closeModals;
+    if (loginSubmit) loginSubmit.onclick = login;
+    if (registerSubmit) registerSubmit.onclick = register;
+    if (gotoRegisterLink) {
+        gotoRegisterLink.onclick = (e) => { 
+            e.preventDefault(); 
+            closeModals(); 
+            document.getElementById("registerModal").style.display = "flex"; 
+        };
+    }
+    if (gotoLoginLink) {
+        gotoLoginLink.onclick = (e) => { 
+            e.preventDefault(); 
+            closeModals(); 
+            document.getElementById("loginModal").style.display = "flex"; 
+        };
+    }
+    if (logoutBtn) logoutBtn.onclick = logout;
 };

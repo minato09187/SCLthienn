@@ -40,7 +40,9 @@
         <div class="admin-tabs">
             <button class="admin-tab active" data-tab="courts">🏸 Quản lý sân</button>
             <button class="admin-tab" data-tab="shop">🛒 Quản lý shop</button>
-            <button class="admin-tab" data-tab="orders">📦 Quản lý đơn hàng</button>
+            <button class="admin-tab" data-tab="orders">
+                📦 Quản lý đơn hàng <span id="ordersBadge" class="tab-badge" style="display:none;">●</span>
+            </button>
         </div>
 
         <div id="courtsTab" class="admin-tab-content active">
@@ -57,9 +59,9 @@
                     <div class="form-group">
                         <input type="text" id="productName" placeholder="Tên sản phẩm">
                         <select id="productCategory">
-                            <option value="shuttlecock">🏸 Cầu lông</option>
-                            <option value="racket">🏓 Vợt cầu lông</option>
-                            <option value="net">🥅 Lưới cầu lông</option>
+                            <option value="shuttlecock">Hộp cầu lông</option>
+                            <option value="racket">🏸 Vợt cầu lông</option>
+                            <option value="net">Lưới cầu lông</option>
                             <option value="shirt">👕 Áo cầu lông</option>
                             <option value="shoes">👟 Giày cầu lông</option>
                         </select>

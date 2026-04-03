@@ -2,7 +2,6 @@ import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, query, where, addDoc } from "firebase/firestore";
 
-// Firebase config
 const firebaseConfig = {
     apiKey: "AIzaSyB82QdjDo-glKNndiGtawo0SArTGVZrbqw",
     authDomain: "sclthienn-ebd45.firebaseapp.com",
@@ -38,7 +37,6 @@ window.showToast = (msg, isError = false) => {
     setTimeout(() => toast.style.display = 'none', 3000);
 };
 
-// Kiểm tra mật khẩu mạnh
 function isStrongPassword(password) {
     if (password.length < 6) return false;
     const hasLetter = /[a-zA-Z]/.test(password);
@@ -46,7 +44,6 @@ function isStrongPassword(password) {
     return hasLetter && hasNumber;
 }
 
-// Lấy dữ liệu đặt sân
 async function getBookedSlots() {
     const dateStr = window.selectedDate;
     const bookingsRef = collection(db, "bookings");
@@ -83,8 +80,7 @@ async function renderBookingTable() {
     
     const { bookedMap, pendingMap } = await getBookedSlots();
     
-    let html = `<div class="table-responsive"><table class="booking-table"><thead>`;
-    html += `<tr><th>Giờ / Sân</th>`;
+    let html = `<div class="table-responsive"><table class="booking-table"><thead><tr><th>Giờ / Sân</th>`;
     for (let i = 0; i < window.timeSlots.length; i++) {
         html += `<th>${window.timeSlots[i]}</th>`;
     }
@@ -209,7 +205,6 @@ async function confirmBooking() {
         createdAt: new Date()
     });
     
-    // Gửi thông báo
     try {
         const notifRef = collection(db, "notifications");
         await addDoc(notifRef, {
@@ -240,7 +235,6 @@ function clearAllSelection() {
     window.showToast("Đã bỏ chọn tất cả khung giờ!");
 }
 
-// ========== AUTH FUNCTIONS ==========
 async function register() {
     const nickname = document.getElementById("regName").value.trim();
     const phone = document.getElementById("regPhone").value.trim();
@@ -251,7 +245,6 @@ async function register() {
         window.showToast("Vui lòng nhập biệt danh!", true);
         return;
     }
-    
     if (!phone) {
         window.showToast("Vui lòng nhập số điện thoại!", true);
         return;
@@ -260,7 +253,6 @@ async function register() {
         window.showToast("Số điện thoại không hợp lệ (10-11 số)!", true);
         return;
     }
-    
     if (!pwd) {
         window.showToast("Vui lòng nhập mật khẩu!", true);
         return;
@@ -269,7 +261,6 @@ async function register() {
         window.showToast("Mật khẩu phải có ít nhất 6 ký tự, gồm chữ và số!", true);
         return;
     }
-    
     if (pwd !== confirmPwd) {
         window.showToast("Mật khẩu nhập lại không khớp!", true);
         return;
@@ -277,7 +268,6 @@ async function register() {
     
     const usersRef = collection(db, "users");
     
-    // Kiểm tra biệt danh
     const nameQuery = query(usersRef, where("name", "==", nickname));
     const nameSnap = await getDocs(nameQuery);
     if (!nameSnap.empty) {
@@ -285,7 +275,6 @@ async function register() {
         return;
     }
     
-    // Kiểm tra số điện thoại
     const phoneQuery = query(usersRef, where("phone", "==", phone));
     const phoneSnap = await getDocs(phoneQuery);
     if (!phoneSnap.empty) {
@@ -378,7 +367,6 @@ function initDatePicker() {
     });
 }
 
-// Khởi chạy
 window.onload = () => {
     const savedUser = localStorage.getItem("currentUser");
     if (savedUser) {
@@ -388,7 +376,6 @@ window.onload = () => {
     initDatePicker();
     renderBookingTable();
     
-    // Nút hiện mật khẩu
     const togglePasswordBtn = document.getElementById("togglePasswordBtn");
     const loginPwdInput = document.getElementById("loginPwd");
     if (togglePasswordBtn && loginPwdInput) {
@@ -402,6 +389,42 @@ window.onload = () => {
             }
         };
     }
+    
+    // Sự kiện Enter cho đăng nhập
+    const loginPhoneInput = document.getElementById("loginPhone");
+    if (loginPhoneInput) {
+        loginPhoneInput.addEventListener("keypress", (e) => {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                document.getElementById("loginSubmit").click();
+            }
+        });
+    }
+    if (loginPwdInput) {
+        loginPwdInput.addEventListener("keypress", (e) => {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                document.getElementById("loginSubmit").click();
+            }
+        });
+    }
+    
+    // Sự kiện Enter cho đăng ký
+    const regNameInput = document.getElementById("regName");
+    const regPhoneInput = document.getElementById("regPhone");
+    const regPwdInput = document.getElementById("regPwd");
+    const regConfirmPwdInput = document.getElementById("regConfirmPwd");
+    const registerInputs = [regNameInput, regPhoneInput, regPwdInput, regConfirmPwdInput];
+    registerInputs.forEach(input => {
+        if (input) {
+            input.addEventListener("keypress", (e) => {
+                if (e.key === "Enter") {
+                    e.preventDefault();
+                    document.getElementById("registerSubmit").click();
+                }
+            });
+        }
+    });
     
     document.getElementById("showLoginBtn").onclick = () => document.getElementById("loginModal").style.display = "flex";
     document.getElementById("showRegisterBtn").onclick = () => document.getElementById("registerModal").style.display = "flex";

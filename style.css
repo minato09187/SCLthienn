@@ -522,3 +522,40 @@ button:hover, .btn:hover {
         left: 5%;
     }
 }
+
+/* Badge cho tab đơn hàng */
+.tab-badge {
+    display: inline-block;
+    margin-left: 5px;
+    font-size: 14px;
+    color: #ef4444;
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.3; }
+    100% { opacity: 1; }
+}
+
+/* Đơn hàng mới */
+.order-new {
+    background: #fffbeb;
+    border-left: 4px solid #f97316;
+}
+
+.new-badge {
+    background: #ef4444;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: bold;
+    animation: blink 1s infinite;
+}
+
+@keyframes blink {
+    0% { opacity: 1; }
+    50% { opacity: 0.6; }
+    100% { opacity: 1; }
+}

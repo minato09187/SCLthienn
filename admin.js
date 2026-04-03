@@ -19,6 +19,7 @@ window.adminLoggedIn = false;
 window.selectedDate = new Date().toISOString().split('T')[0];
 window.courtsCount = 6;
 window.timeSlots = [];
+let unreadOrdersCount = 0;
 
 for (let i = 0; i < 24; i++) {
     let start = i.toString().padStart(2, '0') + ":00";
@@ -34,6 +35,7 @@ window.showToast = (msg, isError = false) => {
     setTimeout(() => toast.style.display = 'none', 3000);
 };
 
+// ========== QUẢN LÝ SÂN ==========
 async function renderAdminTable() {
     const container = document.getElementById("adminTable");
     if (!container || !window.adminLoggedIn) return;
@@ -58,7 +60,7 @@ async function renderAdminTable() {
     for (let i = 0; i < window.timeSlots.length; i++) {
         html += `<th>${window.timeSlots[i]}</th>`;
     }
-    html += `</tr></thead><tbody>`;
+    html += `<tr></thead><tbody>`;
     
     for (let c = 1; c <= window.courtsCount; c++) {
         html += `<tr><td class="court-label">Sân ${c}</td>`;
@@ -156,6 +158,7 @@ async function deleteSlot(key) {
     }
 }
 
+// ========== QUẢN LÝ SHOP ==========
 async function loadProducts() {
     const container = document.getElementById("productsList");
     if (!container) return;
@@ -167,9 +170,9 @@ async function loadProducts() {
     snapshot.forEach(docSnap => {
         const product = { id: docSnap.id, ...docSnap.data() };
         const categoryName = {
-            shuttlecock: "🏸 Cầu",
-            racket: "🏓 Vợt",
-            net: "🥅 Lưới",
+            shuttlecock: " Cầu",
+            racket: "🏸 Vợt",
+            net: " Lưới",
             shirt: "👕 Áo",
             shoes: "👟 Giày"
         }[product.category] || product.category;
@@ -244,6 +247,40 @@ async function addProduct() {
     loadProducts();
 }
 
+// ========== QUẢN LÝ ĐƠN HÀNG (có chấm đỏ) ==========
+async function checkNewOrders() {
+    const ordersRef = collection(db, "orders");
+    const q = query(ordersRef, orderBy("createdAt", "desc"));
+    const snapshot = await getDocs(q);
+    
+    let newCount = 0;
+    const now = new Date();
+    
+    snapshot.forEach(docSnap => {
+        const order = docSnap.data();
+        const createdAt = order.createdAt?.toDate?.() || new Date(order.createdAt);
+        const diffMinutes = (now - createdAt) / (1000 * 60);
+        if (diffMinutes <= 30 && !order.adminRead) {
+            newCount++;
+        }
+    });
+    
+    unreadOrdersCount = newCount;
+    updateOrdersBadge();
+}
+
+function updateOrdersBadge() {
+    const ordersBadge = document.getElementById("ordersBadge");
+    if (ordersBadge) {
+        ordersBadge.style.display = unreadOrdersCount > 0 ? "inline-block" : "none";
+    }
+}
+
+function markOrdersAsRead() {
+    unreadOrdersCount = 0;
+    updateOrdersBadge();
+}
+
 async function loadOrders() {
     const container = document.getElementById("ordersList");
     if (!container) return;
@@ -255,15 +292,17 @@ async function loadOrders() {
     let html = "";
     snapshot.forEach(docSnap => {
         const order = { id: docSnap.id, ...docSnap.data() };
-        const date = order.createdAt?.toDate?.() || new Date();
+        const date = order.createdAt?.toDate?.() || new Date(order.createdAt);
+        const isNew = !order.adminRead;
         
         html += `
-            <div class="order-item">
+            <div class="order-item ${isNew ? 'order-new' : ''}" data-id="${order.id}">
                 <div class="order-header">
                     <strong>👤 ${order.userName}</strong>
                     <span>📞 ${order.userPhone}</span>
-                    <span>📍 ${order.address}</span>
-                    <span>📅 ${date.toLocaleDateString()}</span>
+                    <span>📍 ${order.address || 'Chưa có địa chỉ'}</span>
+                    <span>📅 ${date.toLocaleDateString()} ${date.toLocaleTimeString()}</span>
+                    ${isNew ? '<span class="new-badge">🆕 Mới</span>' : ''}
                 </div>
                 <div class="order-items">
                     ${order.items?.map(item => `
@@ -274,22 +313,46 @@ async function loadOrders() {
                 </div>
                 <div class="order-total">
                     <strong>Tổng: ${order.total?.toLocaleString() || 0}đ</strong>
+                    <button onclick="markOrderRead('${order.id}')" style="background:#10b981;">✅ Đã xem</button>
                     <button onclick="deleteOrder('${order.id}')" style="background:#ef4444;">🗑️ Xóa</button>
                 </div>
             </div>
         `;
     });
+    
     container.innerHTML = html || "<p>Chưa có đơn hàng nào</p>";
 }
+
+window.markOrderRead = async (id) => {
+    const orderRef = doc(db, "orders", id);
+    await updateDoc(orderRef, { adminRead: true, readAt: new Date() });
+    window.showToast("Đã đánh dấu đã xem!");
+    loadOrders();
+    checkNewOrders();
+};
 
 window.deleteOrder = async (id) => {
     if (confirm("Xóa đơn hàng này?")) {
         await deleteDoc(doc(db, "orders", id));
         window.showToast("Đã xóa đơn hàng!");
         loadOrders();
+        checkNewOrders();
     }
 };
 
+function startOrderListener() {
+    onSnapshot(collection(db, "orders"), () => {
+        if (window.adminLoggedIn) {
+            checkNewOrders();
+            const activeTab = document.querySelector('.admin-tab.active');
+            if (activeTab && activeTab.dataset.tab === "orders") {
+                loadOrders();
+            }
+        }
+    });
+}
+
+// ========== THÔNG BÁO ĐẶT SÂN ==========
 function loadNotifications() {
     const notifList = document.getElementById("notificationPanel");
     if (!notifList) return;
@@ -341,6 +404,7 @@ function startNotificationListener() {
     });
 }
 
+// ========== ADMIN AUTH ==========
 async function adminLogin() {
     const pwdInput = document.getElementById("adminPassword").value;
     const settingsRef = doc(db, "settings", "admin");
@@ -357,6 +421,8 @@ async function adminLogin() {
         loadOrders();
         loadNotifications();
         startNotificationListener();
+        startOrderListener();
+        checkNewOrders();
         window.showToast("Đăng nhập admin thành công");
     } else {
         window.showToast("Mật khẩu admin không đúng!", true);
@@ -392,7 +458,10 @@ function initTabs() {
             if (activeTab) activeTab.style.display = "block";
             
             if (tabName === "shop") loadProducts();
-            if (tabName === "orders") loadOrders();
+            if (tabName === "orders") {
+                loadOrders();
+                markOrdersAsRead();
+            }
         });
     });
 }
