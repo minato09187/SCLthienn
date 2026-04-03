@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Quản lý sân cầu lông - Admin</title>
+    <title>Quan ly san cau long - Admin</title>
     <link rel="stylesheet" href="style.css">
     <script type="importmap">
         {
@@ -19,86 +19,62 @@
 <div class="container">
     <div class="header">
         <div class="header-left">
-            <a href="index.html" class="back-btn">🏸 Về trang chủ</a>
+            <a href="index.html" class="back-btn">Ve trang chu</a>
         </div>
-        <h1>🎛️ Quản Lý Sân Cầu Lông</h1>
+        <h1>Quan Ly San Cau Long</h1>
         <div class="admin-header-right">
             <div class="notification-bell" id="notifBell">
                 🔔 <span id="notifBadge" class="badge"></span>
             </div>
-            <button id="adminLogoutBtn" style="background:#ef4444">Đăng xuất</button>
+            <button id="adminLogoutBtn" style="background:#ef4444">Dang xuat</button>
         </div>
     </div>
 
-    <!-- Form đăng nhập admin (hiện khi chưa đăng nhập) -->
     <div id="adminLoginDiv" class="admin-login-box">
-        <h3>🔐 Đăng nhập quản trị</h3>
-        <input type="password" id="adminPassword" placeholder="Nhập mật khẩu quản trị">
-        <button id="adminLoginBtn">Đăng nhập</button>
+        <h3>Dang nhap quan tri</h3>
+        <input type="password" id="adminPassword" placeholder="Nhap mat khau quan tri">
+        <button id="adminLoginBtn">Dang nhap</button>
     </div>
 
-    <!-- Nội dung admin (hiện sau khi đăng nhập) -->
     <div id="adminContent" style="display:none">
-        <!-- Tab menu -->
         <div class="admin-tabs">
-            <button class="admin-tab active" data-tab="courts">🏸 Quản lý sân</button>
-            <button class="admin-tab" data-tab="shop">🛒 Quản lý shop</button>
-            <button class="admin-tab" data-tab="orders">📦 Quản lý đơn hàng</button>
+            <button class="admin-tab active" data-tab="courts">Quan ly san</button>
+            <button class="admin-tab" data-tab="shop">Quan ly shop</button>
+            <button class="admin-tab" data-tab="orders">Quan ly don hang</button>
         </div>
 
-        <!-- Tab Quản lý sân -->
         <div id="courtsTab" class="admin-tab-content active">
             <div class="admin-controls">
                 <div class="date-control">
-                    <label>📅 Chọn ngày: <input type="date" id="datePicker"></label>
+                    <label>Chon ngay: <input type="date" id="datePicker"></label>
                 </div>
                 <div class="admin-actions">
-                    <button id="toggleDeleteBtn">🗑️ Xóa sân (admin)</button>
-                    <button id="confirmDeleteBtn">✔️ Xác nhận xóa</button>
+                    <button id="toggleDeleteBtn">Xoa san (admin)</button>
+                    <button id="confirmDeleteBtn">Xac nhan xoa</button>
                 </div>
             </div>
             <div id="adminTable"></div>
         </div>
 
-        <!-- Tab Quản lý shop -->
         <div id="shopTab" class="admin-tab-content" style="display:none">
             <div class="shop-manager">
-                <div class="add-product-form">
-                    <h3>➕ Thêm sản phẩm mới</h3>
-                    <div class="form-group">
-                        <input type="text" id="productName" placeholder="Tên sản phẩm">
-                        <select id="productCategory">
-                            <option value="shuttlecock">🏸 Cầu lông</option>
-                            <option value="racket">🏓 Vợt cầu lông</option>
-                            <option value="net">🥅 Lưới cầu lông</option>
-                            <option value="shirt">👕 Áo cầu lông</option>
-                            <option value="shoes">👟 Giày cầu lông</option>
-                        </select>
-                        <input type="number" id="productPrice" placeholder="Giá tiền (VNĐ)">
-                        <input type="number" id="productStock" placeholder="Số lượng trong kho">
-                        <button id="addProductBtn">➕ Thêm sản phẩm</button>
-                    </div>
-                </div>
-                
-                <div class="product-list">
-                    <h3>📦 Danh sách sản phẩm</h3>
-                    <div id="productsList"></div>
-                </div>
+                <p>Quan ly shop - Them chuc nang sau</p>
             </div>
         </div>
 
-        <!-- Tab Quản lý đơn hàng -->
         <div id="ordersTab" class="admin-tab-content" style="display:none">
             <div class="orders-manager">
-                <h3>📋 Đơn hàng chờ xử lý</h3>
-                <div id="ordersList"></div>
+                <p>Quan ly don hang - Them chuc nang sau</p>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Panel thông báo -->
-<div class="notification-panel" id="notificationPanel"></div>
+<!-- Panel thong bao -->
+<div class="notification-panel" id="notificationPanel">
+    <div style="padding: 12px;">Dang tai thong bao...</div>
+</div>
+
 <div id="toastMsg" class="toast"></div>
 
 <script type="module" src="admin.js"></script>

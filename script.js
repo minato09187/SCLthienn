@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, query, where, addDoc } from "firebase/firestore";
+import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, query, where, addDoc } from "firebase/firestore";
 
 // Firebase config
 const firebaseConfig = {
@@ -12,7 +12,6 @@ const firebaseConfig = {
   appId: "1:171574896796:web:12a0c4d00952ace6886559",
   measurementId: "G-WJB7KFH28M"
 };
-
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -22,7 +21,7 @@ window.currentUser = null;
 window.selectedDate = new Date().toISOString().split('T')[0];
 window.courtsCount = 6;
 window.timeSlots = [];
-window.tempSelectedSlots = new Set();
+window.tempSelectedSlots = new Set(); // Lưu ô màu vàng (tạm chọn)
 
 for (let i = 0; i < 24; i++) {
     let start = i.toString().padStart(2, '0') + ":00";
@@ -38,6 +37,33 @@ window.showToast = (msg, isError = false) => {
     setTimeout(() => toast.style.display = 'none', 3000);
 };
 
+// Lấy dữ liệu đặt sân từ Firebase
+async function getBookedSlots() {
+    const dateStr = window.selectedDate;
+    const bookingsRef = collection(db, "bookings");
+    const q = query(bookingsRef, where("date", "==", dateStr));
+    const snapshot = await getDocs(q);
+    const bookedMap = new Map(); // key -> { status, userName, phone }
+    const pendingMap = new Map(); // key -> { status, userName, phone }
+    
+    snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        if (data.slots) {
+            data.slots.forEach(slotObj => {
+                const key = Object.keys(slotObj)[0];
+                const slotData = slotObj[key];
+                if (slotData.status === "confirmed") {
+                    bookedMap.set(key, slotData);
+                } else if (slotData.status === "pending") {
+                    pendingMap.set(key, slotData);
+                }
+            });
+        }
+    });
+    
+    return { bookedMap, pendingMap };
+}
+
 async function renderBookingTable() {
     const container = document.getElementById("customerTable");
     if (!container) return;
@@ -46,20 +72,7 @@ async function renderBookingTable() {
     const todayStr = new Date().toISOString().split('T')[0];
     const isPastDate = dateStr < todayStr;
     
-    const bookingsRef = collection(db, "bookings");
-    const q = query(bookingsRef, where("date", "==", dateStr));
-    const snapshot = await getDocs(q);
-    const bookingMap = new Map();
-    
-    snapshot.forEach(docSnap => {
-        const data = docSnap.data();
-        if (data.slots) {
-            data.slots.forEach(slotObj => {
-                const key = Object.keys(slotObj)[0];
-                bookingMap.set(key, slotObj[key]);
-            });
-        }
-    });
+    const { bookedMap, pendingMap } = await getBookedSlots();
     
     let html = `<div class="table-responsive"><table class="booking-table"><thead><tr><th>Giờ / Sân</th>`;
     for (let i = 0; i < window.timeSlots.length; i++) {
@@ -71,26 +84,38 @@ async function renderBookingTable() {
         html += `<tr><td class="court-label">Sân ${c}</td>`;
         for (let h = 0; h < window.timeSlots.length; h++) {
             const key = `${c}_${h}`;
-            const isBooked = bookingMap.has(key);
+            const isBooked = bookedMap.has(key);
+            const isPending = pendingMap.has(key);
             const isTempSelected = window.tempSelectedSlots.has(key);
             
             let cellClass = "booking-cell";
             let cellContent = "";
+            let title = "";
             
             if (isPastDate) {
                 cellClass += " past-date";
                 cellContent = "🔒";
+                title = "Ngày đã qua";
             } else if (isBooked) {
                 cellClass += " booked";
                 cellContent = "❌ Đã đặt";
+                const data = bookedMap.get(key);
+                title = `${data.userName} - ${data.phone}`;
+            } else if (isPending) {
+                cellClass += " pending";
+                cellContent = "⏳ Chờ duyệt";
+                const data = pendingMap.get(key);
+                title = `${data.userName} - ${data.phone} - Đang chờ duyệt`;
             } else if (isTempSelected) {
                 cellClass += " temp-selected";
                 cellContent = "⭐ Đã chọn";
+                title = "Đã chọn, chờ xác nhận";
             } else {
                 cellClass += " available";
                 cellContent = "✔️";
+                title = "Có thể đặt";
             }
-            html += `<td class="${cellClass}" data-court="${c}" data-hour="${h}" data-key="${key}" data-booked="${isBooked}">${cellContent}</td>`;
+            html += `<td class="${cellClass}" data-court="${c}" data-hour="${h}" data-key="${key}" data-booked="${isBooked}" data-pending="${isPending}" title="${title}">${cellContent}</td>`;
         }
         html += `</tr>`;
     }
@@ -98,9 +123,10 @@ async function renderBookingTable() {
     container.innerHTML = html;
     
     if (!isPastDate) {
-        const allCells = document.querySelectorAll(`#customerTable .booking-cell.available, #customerTable .booking-cell.temp-selected`);
+        // Chỉ cho click vào ô trắng (available) và ô vàng (temp-selected)
+        const clickableCells = document.querySelectorAll(`#customerTable .booking-cell.available, #customerTable .booking-cell.temp-selected`);
         
-        allCells.forEach(cell => {
+        clickableCells.forEach(cell => {
             cell.removeEventListener('click', cell.handler);
             
             const handler = async (e) => {
@@ -109,6 +135,7 @@ async function renderBookingTable() {
                 const hour = parseInt(cell.dataset.hour);
                 const key = cell.dataset.key;
                 const isBooked = cell.dataset.booked === 'true';
+                const isPending = cell.dataset.pending === 'true';
                 
                 if (!window.currentUser) {
                     window.showToast("Vui lòng đăng nhập để đặt sân!", true);
@@ -116,7 +143,7 @@ async function renderBookingTable() {
                     return;
                 }
                 
-                if (isBooked) {
+                if (isBooked || isPending) {
                     window.showToast("Sân này đã có người đặt!", true);
                     return;
                 }
@@ -162,39 +189,19 @@ async function confirmBooking() {
     }
     
     const newSlots = [];
-    for (const key of window.tempSelectedSlots) {
-        const checkSnapshot = await getDocs(query(collection(db, "bookings"), where("date", "==", dateStr)));
-        let alreadyBooked = false;
-        checkSnapshot.forEach(doc => {
-            if (doc.data().slots) {
-                doc.data().slots.forEach(slotObj => {
-                    if (Object.keys(slotObj)[0] === key) alreadyBooked = true;
-                });
-            }
-        });
-        
-        if (!alreadyBooked) {
-            const [court, hour] = key.split('_');
-            newSlots.push({ [key]: { userId: user.uid, userName: user.displayName, phone: user.phoneNumber } });
-            
-            const notifRef = collection(db, "notifications");
-            await addDoc(notifRef, {
-                userName: user.displayName,
-                phone: user.phoneNumber,
-                courtSlots: `Sân ${court} - ${window.timeSlots[parseInt(hour)]}`,
-                date: dateStr,
-                read: false,
-                createdAt: new Date(),
-                userId: user.uid
-            });
-        }
-    }
+    const bookedSlotsInfo = [];
     
-    if (newSlots.length === 0) {
-        window.showToast("Các khung giờ bạn chọn đã có người đặt trước!", true);
-        window.tempSelectedSlots.clear();
-        await renderBookingTable();
-        return;
+    for (const key of window.tempSelectedSlots) {
+        const [court, hour] = key.split('_');
+        const slotData = {
+            userId: user.uid,
+            userName: user.displayName,
+            phone: user.phoneNumber,
+            status: "pending", // Trạng thái: pending (chờ duyệt)
+            createdAt: new Date()
+        };
+        newSlots.push({ [key]: slotData });
+        bookedSlotsInfo.push(`Sân ${court} - ${window.timeSlots[parseInt(hour)]}`);
     }
     
     const allSlots = [...existingSlots, ...newSlots];
@@ -207,7 +214,24 @@ async function confirmBooking() {
         createdAt: new Date()
     });
     
-    window.showToast(`Đặt sân thành công! Đã đặt ${newSlots.length} khung giờ.`);
+    // Gửi thông báo cho admin
+    try {
+        const notifRef = collection(db, "notifications");
+        await addDoc(notifRef, {
+            userName: user.displayName,
+            phone: user.phoneNumber,
+            courtSlots: bookedSlotsInfo.join(", "),
+            date: dateStr,
+            read: false,
+            createdAt: new Date(),
+            userId: user.uid
+        });
+        console.log("Đã gửi thông báo");
+    } catch (error) {
+        console.error("Lỗi gửi thông báo:", error);
+    }
+    
+    window.showToast(`Đã gửi yêu cầu đặt sân! Vui lòng chờ admin duyệt.`);
     window.tempSelectedSlots.clear();
     await renderBookingTable();
 }
@@ -222,6 +246,7 @@ function clearAllSelection() {
     window.showToast("Đã bỏ chọn tất cả khung giờ!");
 }
 
+// Auth functions
 async function register() {
     const nickname = document.getElementById("regName").value.trim();
     const phone = document.getElementById("regPhone").value.trim();

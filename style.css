@@ -814,3 +814,25 @@ button:disabled {
 .booking-cell.temp-selected:hover {
     background: #fde68a;
 }
+.booking-cell.pending {
+    background: #fed7aa !important;
+    color: #9a3412 !important;
+    cursor: default;
+}
+
+/* Trạng thái admin chờ duyệt */
+.admin-pending {
+    background: #f97316 !important;
+    color: white !important;
+}
+
+.admin-pending button {
+    margin: 2px;
+    border: none;
+    border-radius: 20px;
+    cursor: pointer;
+}
+
+.confirm-btn:hover, .cancel-btn:hover {
+    opacity: 0.8;
+}
