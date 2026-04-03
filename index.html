@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<<!DOCTYPE html>
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
@@ -18,6 +18,9 @@
 <body>
 <div class="container">
     <div class="header">
+        <div class="header-left">
+            <a href="shop.html" class="shop-nav-btn">🛒 Shop Cầu Lông</a>
+        </div>
         <h1>🏸 Đặt Sân Cầu Lông</h1>
         <div id="authButtons" class="auth-buttons">
             <button id="showLoginBtn">Đăng nhập</button>
@@ -32,6 +35,7 @@
     <div style="margin:15px 0; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
         <label>📅 Chọn ngày: <input type="date" id="datePicker"></label>
         <button id="confirmBookingBtn">✅ Xác nhận đặt sân</button>
+        <button id="clearSelectionBtn" style="background:#ef4444;">🗑️ Bỏ chọn tất cả</button>
     </div>
     
     <div id="customerTable"></div>
@@ -40,7 +44,7 @@
 <!-- Modals -->
 <div id="loginModal" class="modal">
     <div class="modal-content">
-        <h3>Đăng nhập</h3>
+        <h3>🔐 Đăng nhập</h3>
         <input id="loginPhone" placeholder="Số điện thoại">
         <input id="loginPwd" type="password" placeholder="Mật khẩu">
         <button id="loginSubmit">Đăng nhập</button>
@@ -51,7 +55,7 @@
 
 <div id="registerModal" class="modal">
     <div class="modal-content">
-        <h3>Đăng ký</h3>
+        <h3>📝 Đăng ký</h3>
         <input id="regName" placeholder="Biệt danh">
         <input id="regPhone" placeholder="Số điện thoại">
         <input id="regPwd" type="password" placeholder="Mật khẩu">

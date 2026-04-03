@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Shop Cầu Lông - Weplay</title>
+    <link rel="stylesheet" href="style.css">
+    <script type="importmap">
+        {
+            "imports": {
+                "firebase/app": "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js",
+                "firebase/auth": "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js",
+                "firebase/firestore": "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js"
+            }
+        }
+    </script>
+    <style>
+        /* Thêm style cho shop */
+        .shop-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 32px;
+            padding: 24px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+        .products-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 24px;
+            margin-top: 24px;
+        }
+        .product-card {
+            border: 1px solid #e2e8f0;
+            border-radius: 20px;
+            padding: 20px;
+            text-align: center;
+            background: white;
+            transition: all 0.3s ease;
+        }
+        .product-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+        }
+        .product-card h4 {
+            margin: 0 0 12px 0;
+            color: #1e293b;
+            font-size: 1.2rem;
+        }
+        .product-card .price {
+            font-size: 24px;
+            font-weight: bold;
+            color: #f59e0b;
+            margin: 12px 0;
+        }
+        .product-card .stock {
+            color: #64748b;
+            margin: 12px 0;
+            font-size: 14px;
+        }
+        .product-card button {
+            width: 100%;
+            margin-top: 12px;
+            background: #10b981;
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 40px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .product-card button:disabled {
+            background: #cbd5e1;
+            cursor: not-allowed;
+        }
+        .category-tabs {
+            display: flex;
+            gap: 12px;
+            margin: 24px 0;
+            flex-wrap: wrap;
+        }
+        .category-btn {
+            background: #f1f5f9;
+            color: #475569;
+            padding: 10px 24px;
+            border: none;
+            border-radius: 40px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .category-btn.active {
+            background: #f59e0b;
+            color: white;
+        }
+        .cart-icon {
+            background: #f59e0b;
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .cart-icon span {
+            background: #ef4444;
+            border-radius: 50%;
+            padding: 2px 8px;
+            font-size: 12px;
+            min-width: 22px;
+        }
+        .cart-modal {
+            width: 90%;
+            max-width: 550px;
+        }
+        .cart-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #e2e8f0;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .cart-item-controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+        .cart-item-controls button {
+            padding: 5px 14px;
+            background: #e2e8f0;
+            color: #1e293b;
+            font-weight: bold;
+        }
+        .cart-total {
+            text-align: right;
+            margin: 20px 0;
+            font-size: 20px;
+            padding-top: 15px;
+            border-top: 2px solid #e2e8f0;
+        }
+        .checkout-btn {
+            background: #f59e0b;
+            width: 100%;
+            margin: 10px 0;
+        }
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            left: 30px;
+            background: #10b981;
+            color: white;
+            padding: 14px 28px;
+            border-radius: 60px;
+            display: none;
+            z-index: 10000;
+            font-weight: 500;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: white;
+            padding: 32px;
+            border-radius: 32px;
+            width: 90%;
+            max-width: 450px;
+        }
+        .modal-content input {
+            width: 100%;
+            margin: 10px 0;
+            padding: 12px 16px;
+            border-radius: 30px;
+            border: 1px solid #cbd5e1;
+        }
+        .modal-content button {
+            width: 100%;
+            margin-top: 15px;
+        }
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            background: #e2e8f0;
+            padding: 8px 20px;
+            border-radius: 50px;
+        }
+        .auth-buttons {
+            display: flex;
+            gap: 12px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        .back-btn {
+            background: #64748b;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 40px;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .shop-nav-btn {
+            background: #f59e0b;
+            color: white;
+            padding: 10px 24px;
+            border-radius: 40px;
+            text-decoration: none;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+<div class="shop-container">
+    <div class="header">
+        <div class="header-left" style="display: flex; gap: 15px;">
+            <a href="index.html" class="back-btn">🏸 Đặt sân</a>
+            <a href="shop.html" class="shop-nav-btn active">🛒 Shop</a>
+        </div>
+        <h1>🛒 Shop Cầu Lông</h1>
+        <div id="authButtons" class="auth-buttons">
+            <button id="showLoginBtn">Đăng nhập</button>
+            <button id="showRegisterBtn">Đăng ký</button>
+        </div>
+        <div id="userInfo" class="user-info" style="display:none">
+            <span>👤 <span id="userNameDisplay"></span></span>
+            <button id="cartBtn" class="cart-icon">🛒 <span id="cartCount">0</span></button>
+            <button id="logoutBtn">Đăng xuất</button>
+        </div>
+    </div>
+
+    <!-- Danh mục sản phẩm -->
+    <div class="category-tabs">
+        <button class="category-btn active" data-category="shuttlecock">🏸 Cầu lông</button>
+        <button class="category-btn" data-category="racket">🏓 Vợt cầu lông</button>
+        <button class="category-btn" data-category="net">🥅 Lưới cầu lông</button>
+        <button class="category-btn" data-category="shirt">👕 Áo cầu lông</button>
+        <button class="category-btn" data-category="shoes">👟 Giày cầu lông</button>
+    </div>
+
+    <!-- Danh sách sản phẩm -->
+    <div id="productsContainer" class="products-grid">
+        <div style="text-align: center; padding: 40px;">Đang tải sản phẩm...</div>
+    </div>
+</div>
+
+<!-- Modal giỏ hàng -->
+<div id="cartModal" class="modal">
+    <div class="modal-content cart-modal">
+        <h3>🛒 Giỏ hàng của bạn</h3>
+        <div id="cartItems"></div>
+        <div class="cart-total">
+            <strong>Tổng tiền: <span id="cartTotal">0</span>đ</strong>
+        </div>
+        <button id="checkoutBtn" class="checkout-btn">✅ Xác nhận đặt hàng</button>
+        <button id="closeCartBtn">Đóng</button>
+    </div>
+</div>
+
+<!-- Modal nhập địa chỉ -->
+<div id="addressModal" class="modal">
+    <div class="modal-content">
+        <h3>📦 Thông tin giao hàng</h3>
+        <input type="text" id="addressInput" placeholder="Nhập địa chỉ giao hàng" style="width:100%; margin:10px 0">
+        <button id="submitOrderBtn">Gửi đơn hàng</button>
+        <button id="closeAddressBtn">Đóng</button>
+    </div>
+</div>
+
+<!-- Modal đăng nhập -->
+<div id="loginModal" class="modal">
+    <div class="modal-content">
+        <h3>🔐 Đăng nhập</h3>
+        <input type="text" id="loginPhone" placeholder="Số điện thoại">
+        <input type="password" id="loginPwd" placeholder="Mật khẩu">
+        <button id="loginSubmit">Đăng nhập</button>
+        <p>Chưa có tài khoản? <a href="#" id="gotoRegisterLink">Đăng ký ngay</a></p>
+        <button id="closeLoginModal">Đóng</button>
+    </div>
+</div>
+
+<!-- Modal đăng ký -->
+<div id="registerModal" class="modal">
+    <div class="modal-content">
+        <h3>📝 Đăng ký</h3>
+        <input type="text" id="regName" placeholder="Biệt danh">
+        <input type="text" id="regPhone" placeholder="Số điện thoại">
+        <input type="password" id="regPwd" placeholder="Mật khẩu">
+        <input type="password" id="regConfirmPwd" placeholder="Nhập lại mật khẩu">
+        <button id="registerSubmit">Đăng ký</button>
+        <p>Đã có tài khoản? <a href="#" id="gotoLoginLink">Đăng nhập</a></p>
+        <button id="closeRegisterModal">Đóng</button>
+    </div>
+</div>
+
+<div id="toastMsg" class="toast"></div>
+
+<script type="module" src="cart.js"></script>
+</body>
+</html>

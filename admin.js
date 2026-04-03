@@ -1,6 +1,7 @@
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, doc, getDoc, getDocs, updateDoc, deleteDoc, query, where, onSnapshot } from "firebase/firestore";
+import { getFirestore, collection, doc, getDoc, getDocs, updateDoc, deleteDoc, query, where, addDoc, setDoc, onSnapshot, orderBy } from "firebase/firestore";
 
+// 🔧 THAY THẾ BẰNG CONFIG CỦA BẠN
 const firebaseConfig = {
   apiKey: "AIzaSyB82QdjDo-glKNndiGtawo0SArTGVZrbqw",
   authDomain: "sclthienn-ebd45.firebaseapp.com",
@@ -36,6 +37,7 @@ window.showToast = (msg, isError = false) => {
     setTimeout(() => toast.style.display = 'none', 3000);
 };
 
+// ========== QUẢN LÝ SÂN ==========
 async function renderAdminTable() {
     const container = document.getElementById("adminTable");
     if (!container || !window.adminLoggedIn) return;
@@ -86,33 +88,153 @@ async function renderAdminTable() {
     container.innerHTML = html;
 }
 
-async function adminLogin() {
-    const pwdInput = document.getElementById("adminPassword").value;
-    const settingsRef = doc(db, "settings", "admin");
-    const docSnap = await getDoc(settingsRef);
-    let correctPwd = "admin123";
-    if (docSnap.exists()) correctPwd = docSnap.data().password;
+// ========== QUẢN LÝ SHOP ==========
+async function loadProducts() {
+    const container = document.getElementById("productsList");
+    if (!container) return;
     
-    if (pwdInput === correctPwd) {
-        window.adminLoggedIn = true;
-        document.getElementById("adminLoginDiv").style.display = "none";
-        document.getElementById("adminContent").style.display = "block";
-        renderAdminTable();
-        loadNotifications();
-        startNotificationListener();
-        window.showToast("Đăng nhập admin thành công");
-    } else {
-        window.showToast("Mật khẩu admin không đúng!", true);
+    const productsRef = collection(db, "products");
+    const snapshot = await getDocs(productsRef);
+    
+    let html = "";
+    snapshot.forEach(docSnap => {
+        const product = { id: docSnap.id, ...docSnap.data() };
+        const categoryName = {
+            shuttlecock: "🏸 Cầu",
+            racket: "🏓 Vợt",
+            net: "🥅 Lưới",
+            shirt: "👕 Áo",
+            shoes: "👟 Giày"
+        }[product.category] || product.category;
+        
+        html += `
+            <div class="product-item" data-id="${product.id}">
+                <div class="product-info">
+                    <strong>${product.name}</strong>
+                    <span class="product-category">${categoryName}</span>
+                    <span class="product-price">${product.price.toLocaleString()}đ</span>
+                    <span class="product-stock">📦 Còn: ${product.stock}</span>
+                </div>
+                <div class="product-actions">
+                    <input type="number" id="editStock_${product.id}" value="${product.stock}" min="0" style="width:80px">
+                    <input type="number" id="editPrice_${product.id}" value="${product.price}" min="0" style="width:120px">
+                    <button onclick="updateProduct('${product.id}')">✏️ Cập nhật</button>
+                    <button onclick="deleteProduct('${product.id}')" style="background:#ef4444">🗑️ Xóa</button>
+                </div>
+            </div>
+        `;
+    });
+    container.innerHTML = html || "<p>Chưa có sản phẩm nào. Hãy thêm sản phẩm mới!</p>";
+}
+
+window.updateProduct = async (id) => {
+    const newStock = parseInt(document.getElementById(`editStock_${id}`).value);
+    const newPrice = parseInt(document.getElementById(`editPrice_${id}`).value);
+    
+    if (isNaN(newStock) || isNaN(newPrice)) {
+        window.showToast("Vui lòng nhập số hợp lệ!", true);
+        return;
     }
+    
+    const productRef = doc(db, "products", id);
+    await updateDoc(productRef, {
+        stock: newStock,
+        price: newPrice
+    });
+    window.showToast("Cập nhật sản phẩm thành công!");
+    loadProducts();
+};
+
+window.deleteProduct = async (id) => {
+    if (confirm("Bạn có chắc muốn xóa sản phẩm này?")) {
+        await deleteDoc(doc(db, "products", id));
+        window.showToast("Đã xóa sản phẩm!");
+        loadProducts();
+    }
+};
+
+async function addProduct() {
+    const name = document.getElementById("productName").value.trim();
+    const category = document.getElementById("productCategory").value;
+    const price = parseInt(document.getElementById("productPrice").value);
+    const stock = parseInt(document.getElementById("productStock").value);
+    
+    if (!name || isNaN(price) || isNaN(stock)) {
+        window.showToast("Vui lòng nhập đầy đủ thông tin!", true);
+        return;
+    }
+    
+    const productsRef = collection(db, "products");
+    await addDoc(productsRef, {
+        name: name,
+        category: category,
+        price: price,
+        stock: stock,
+        createdAt: new Date()
+    });
+    
+    window.showToast("Thêm sản phẩm thành công!");
+    document.getElementById("productName").value = "";
+    document.getElementById("productPrice").value = "";
+    document.getElementById("productStock").value = "";
+    loadProducts();
 }
 
-function adminLogout() {
-    window.adminLoggedIn = false;
-    document.getElementById("adminLoginDiv").style.display = "block";
-    document.getElementById("adminContent").style.display = "none";
-    window.showToast("Đã đăng xuất admin");
+// ========== QUẢN LÝ ĐƠN HÀNG ==========
+async function loadOrders() {
+    const container = document.getElementById("ordersList");
+    if (!container) return;
+    
+    const ordersRef = collection(db, "orders");
+    const q = query(ordersRef, orderBy("createdAt", "desc"));
+    const snapshot = await getDocs(q);
+    
+    let html = "";
+    snapshot.forEach(docSnap => {
+        const order = { id: docSnap.id, ...docSnap.data() };
+        const date = order.createdAt?.toDate?.() || new Date();
+        
+        html += `
+            <div class="order-item">
+                <div class="order-header">
+                    <strong>👤 ${order.userName}</strong>
+                    <span>📞 ${order.userPhone}</span>
+                    <span>📍 ${order.address}</span>
+                    <span>📅 ${date.toLocaleDateString()}</span>
+                </div>
+                <div class="order-items">
+                    ${order.items?.map(item => `
+                        <div class="order-item-detail">
+                            ${item.name} x ${item.quantity} = ${(item.price * item.quantity).toLocaleString()}đ
+                        </div>
+                    `).join('') || ''}
+                </div>
+                <div class="order-total">
+                    <strong>Tổng: ${order.total?.toLocaleString() || 0}đ</strong>
+                    <button onclick="markOrderCompleted('${order.id}')" style="background:#10b981">✅ Đã giao hàng</button>
+                    <button onclick="deleteOrder('${order.id}')" style="background:#ef4444">🗑️ Xóa</button>
+                </div>
+            </div>
+        `;
+    });
+    container.innerHTML = html || "<p>Chưa có đơn hàng nào</p>";
 }
 
+window.markOrderCompleted = async (id) => {
+    await deleteDoc(doc(db, "orders", id));
+    window.showToast("Đã đánh dấu đơn hàng hoàn thành!");
+    loadOrders();
+};
+
+window.deleteOrder = async (id) => {
+    if (confirm("Xóa đơn hàng này?")) {
+        await deleteDoc(doc(db, "orders", id));
+        window.showToast("Đã xóa đơn hàng!");
+        loadOrders();
+    }
+};
+
+// ========== XÓA SÂN ADMIN ==========
 function enableAdminDeleteMode() {
     window.adminDeleteMode = !window.adminDeleteMode;
     const btn = document.getElementById("toggleDeleteBtn");
@@ -157,21 +279,24 @@ async function confirmDeleteCells() {
     renderAdminTable();
 }
 
+// ========== THÔNG BÁO ==========
 function loadNotifications() {
     const notifList = document.getElementById("notificationPanel");
-    const q = query(collection(db, "notifications"), where("read", "==", false));
+    const q = query(collection(db, "notifications"), where("read", "==", false), orderBy("createdAt", "desc"));
     getDocs(q).then(snapshot => {
-        let html = "<h4>📢 Thông báo mới</h4>";
+        let html = "<h4>📢 Thông báo đặt sân mới</h4>";
         let count = 0;
         snapshot.forEach(docSn => {
             const data = docSn.data();
             count++;
-            html += `<div class="notif-item unread" data-id="${docSn.id}">
-                        <strong>${data.userName}</strong><br>
-                        📞 ${data.phone}<br>
-                        🏸 ${data.courtSlots}<br>
-                        📅 ${data.date}
-                     </div>`;
+            html += `
+                <div class="notif-item unread" data-id="${docSn.id}">
+                    <strong>${data.userName}</strong><br>
+                    📞 ${data.phone}<br>
+                    🏸 ${data.courtSlots}<br>
+                    📅 ${data.date}
+                </div>
+            `;
         });
         if (count === 0) html += "<div>Không có thông báo mới</div>";
         notifList.innerHTML = html;
@@ -181,8 +306,7 @@ function loadNotifications() {
         document.querySelectorAll(".notif-item").forEach(el => {
             el.addEventListener("click", async () => {
                 const id = el.dataset.id;
-                const notifRef = doc(db, "notifications", id);
-                await updateDoc(notifRef, { read: true });
+                await updateDoc(doc(db, "notifications", id), { read: true });
                 loadNotifications();
             });
         });
@@ -195,12 +319,58 @@ function startNotificationListener() {
     });
 }
 
+// ========== ADMIN AUTH ==========
+async function adminLogin() {
+    const pwdInput = document.getElementById("adminPassword").value;
+    const settingsRef = doc(db, "settings", "admin");
+    const docSnap = await getDoc(settingsRef);
+    let correctPwd = "admin123";
+    if (docSnap.exists()) correctPwd = docSnap.data().password;
+    
+    if (pwdInput === correctPwd) {
+        window.adminLoggedIn = true;
+        document.getElementById("adminLoginDiv").style.display = "none";
+        document.getElementById("adminContent").style.display = "block";
+        renderAdminTable();
+        loadProducts();
+        loadOrders();
+        loadNotifications();
+        startNotificationListener();
+        window.showToast("Đăng nhập admin thành công");
+    } else {
+        window.showToast("Mật khẩu admin không đúng!", true);
+    }
+}
+
+function adminLogout() {
+    window.adminLoggedIn = false;
+    document.getElementById("adminLoginDiv").style.display = "block";
+    document.getElementById("adminContent").style.display = "none";
+    window.showToast("Đã đăng xuất admin");
+}
+
+// ========== KHỞI TẠO ==========
 function initDatePicker() {
     const datePicker = document.getElementById("datePicker");
     datePicker.value = window.selectedDate;
     datePicker.addEventListener("change", (e) => {
         window.selectedDate = e.target.value;
         renderAdminTable();
+    });
+}
+
+function initTabs() {
+    document.querySelectorAll(".admin-tab").forEach(tab => {
+        tab.addEventListener("click", () => {
+            const tabName = tab.dataset.tab;
+            document.querySelectorAll(".admin-tab").forEach(t => t.classList.remove("active"));
+            tab.classList.add("active");
+            document.querySelectorAll(".admin-tab-content").forEach(content => content.style.display = "none");
+            document.getElementById(`${tabName}Tab`).style.display = "block";
+            
+            if (tabName === "shop") loadProducts();
+            if (tabName === "orders") loadOrders();
+        });
     });
 }
 
@@ -223,10 +393,12 @@ document.addEventListener('click', (e) => {
 
 window.onload = () => {
     initDatePicker();
+    initTabs();
     document.getElementById("adminLoginBtn").onclick = adminLogin;
     document.getElementById("adminLogoutBtn").onclick = adminLogout;
     document.getElementById("toggleDeleteBtn").onclick = enableAdminDeleteMode;
     document.getElementById("confirmDeleteBtn").onclick = confirmDeleteCells;
+    document.getElementById("addProductBtn").onclick = addProduct;
     document.getElementById("notifBell").onclick = () => {
         const panel = document.getElementById("notificationPanel");
         panel.style.display = panel.style.display === "none" ? "block" : "none";

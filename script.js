@@ -2,7 +2,7 @@ import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, query, where, addDoc } from "firebase/firestore";
 
-// 🔧 THAY THẾ BẰNG CONFIG FIREBASE CỦA BẠN
+// Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyB82QdjDo-glKNndiGtawo0SArTGVZrbqw",
   authDomain: "sclthienn-ebd45.firebaseapp.com",
@@ -22,6 +22,7 @@ window.currentUser = null;
 window.selectedDate = new Date().toISOString().split('T')[0];
 window.courtsCount = 6;
 window.timeSlots = [];
+window.tempSelectedSlots = new Set();
 
 for (let i = 0; i < 24; i++) {
     let start = i.toString().padStart(2, '0') + ":00";
@@ -70,8 +71,9 @@ async function renderBookingTable() {
         html += `<tr><td class="court-label">Sân ${c}</td>`;
         for (let h = 0; h < window.timeSlots.length; h++) {
             const key = `${c}_${h}`;
-            const booked = bookingMap.get(key);
-            const isBooked = !!booked;
+            const isBooked = bookingMap.has(key);
+            const isTempSelected = window.tempSelectedSlots.has(key);
+            
             let cellClass = "booking-cell";
             let cellContent = "";
             
@@ -81,11 +83,14 @@ async function renderBookingTable() {
             } else if (isBooked) {
                 cellClass += " booked";
                 cellContent = "❌ Đã đặt";
+            } else if (isTempSelected) {
+                cellClass += " temp-selected";
+                cellContent = "⭐ Đã chọn";
             } else {
                 cellClass += " available";
                 cellContent = "✔️";
             }
-            html += `<td class="${cellClass}" data-court="${c}" data-hour="${h}" data-booked="${isBooked}">${cellContent}</td>`;
+            html += `<td class="${cellClass}" data-court="${c}" data-hour="${h}" data-key="${key}" data-booked="${isBooked}">${cellContent}</td>`;
         }
         html += `</tr>`;
     }
@@ -93,71 +98,130 @@ async function renderBookingTable() {
     container.innerHTML = html;
     
     if (!isPastDate) {
-        document.querySelectorAll(`#customerTable .booking-cell.available`).forEach(cell => {
-            cell.addEventListener('click', async (e) => {
+        const allCells = document.querySelectorAll(`#customerTable .booking-cell.available, #customerTable .booking-cell.temp-selected`);
+        
+        allCells.forEach(cell => {
+            cell.removeEventListener('click', cell.handler);
+            
+            const handler = async (e) => {
+                e.stopPropagation();
                 const court = parseInt(cell.dataset.court);
                 const hour = parseInt(cell.dataset.hour);
+                const key = cell.dataset.key;
+                const isBooked = cell.dataset.booked === 'true';
+                
                 if (!window.currentUser) {
                     window.showToast("Vui lòng đăng nhập để đặt sân!", true);
+                    document.getElementById("loginModal").style.display = "flex";
                     return;
                 }
                 
-                const key = `${court}_${hour}`;
-                const qCheck = query(collection(db, "bookings"), where("date", "==", window.selectedDate));
-                const snapCheck = await getDocs(qCheck);
-                let already = false;
-                snapCheck.forEach(docSn => {
-                    if (docSn.data().slots) {
-                        docSn.data().slots.forEach(slotObj => {
-                            if (Object.keys(slotObj)[0] === key) already = true;
-                        });
-                    }
-                });
-                if (already) {
-                    window.showToast("Ô này vừa có người đặt rồi!", true);
-                    renderBookingTable();
+                if (isBooked) {
+                    window.showToast("Sân này đã có người đặt!", true);
                     return;
                 }
                 
-                const user = window.currentUser;
-                const bookingDocId = `${window.selectedDate}_${user.uid}`;
-                const bookingDocRef = doc(db, "bookings", bookingDocId);
-                const docSnap = await getDoc(bookingDocRef);
-                const newSlot = { [key]: { userId: user.uid, userName: user.displayName, phone: user.phoneNumber } };
-                
-                if (docSnap.exists()) {
-                    const existing = docSnap.data().slots || [];
-                    await updateDoc(bookingDocRef, { slots: [...existing, newSlot] });
+                if (window.tempSelectedSlots.has(key)) {
+                    window.tempSelectedSlots.delete(key);
+                    window.showToast(`Đã bỏ chọn sân ${court} - ${window.timeSlots[hour]}`);
                 } else {
-                    await setDoc(bookingDocRef, {
-                        date: window.selectedDate,
-                        userId: user.uid,
-                        userName: user.displayName,
-                        phone: user.phoneNumber,
-                        slots: [newSlot],
-                        createdAt: new Date()
-                    });
+                    window.tempSelectedSlots.add(key);
+                    window.showToast(`Đã chọn sân ${court} - ${window.timeSlots[hour]}`);
                 }
                 
-                window.showToast(`Đặt sân ${court} - ${window.timeSlots[hour]} thành công!`);
-                const notifRef = collection(db, "notifications");
-                await addDoc(notifRef, {
-                    userName: user.displayName,
-                    phone: user.phoneNumber,
-                    courtSlots: `Sân ${court} - ${window.timeSlots[hour]}`,
-                    date: window.selectedDate,
-                    read: false,
-                    createdAt: new Date(),
-                    userId: user.uid
-                });
-                
-                renderBookingTable();
-            });
+                await renderBookingTable();
+            };
+            
+            cell.handler = handler;
+            cell.addEventListener('click', handler);
         });
     }
 }
 
-// Auth functions (đăng ký, đăng nhập, v.v.)
+async function confirmBooking() {
+    if (!window.currentUser) {
+        window.showToast("Vui lòng đăng nhập để đặt sân!", true);
+        document.getElementById("loginModal").style.display = "flex";
+        return;
+    }
+    
+    if (window.tempSelectedSlots.size === 0) {
+        window.showToast("Vui lòng chọn ít nhất 1 khung giờ!", true);
+        return;
+    }
+    
+    const user = window.currentUser;
+    const dateStr = window.selectedDate;
+    const bookingDocId = `${dateStr}_${user.uid}`;
+    const bookingDocRef = doc(db, "bookings", bookingDocId);
+    
+    const docSnap = await getDoc(bookingDocRef);
+    let existingSlots = [];
+    if (docSnap.exists() && docSnap.data().slots) {
+        existingSlots = docSnap.data().slots;
+    }
+    
+    const newSlots = [];
+    for (const key of window.tempSelectedSlots) {
+        const checkSnapshot = await getDocs(query(collection(db, "bookings"), where("date", "==", dateStr)));
+        let alreadyBooked = false;
+        checkSnapshot.forEach(doc => {
+            if (doc.data().slots) {
+                doc.data().slots.forEach(slotObj => {
+                    if (Object.keys(slotObj)[0] === key) alreadyBooked = true;
+                });
+            }
+        });
+        
+        if (!alreadyBooked) {
+            const [court, hour] = key.split('_');
+            newSlots.push({ [key]: { userId: user.uid, userName: user.displayName, phone: user.phoneNumber } });
+            
+            const notifRef = collection(db, "notifications");
+            await addDoc(notifRef, {
+                userName: user.displayName,
+                phone: user.phoneNumber,
+                courtSlots: `Sân ${court} - ${window.timeSlots[parseInt(hour)]}`,
+                date: dateStr,
+                read: false,
+                createdAt: new Date(),
+                userId: user.uid
+            });
+        }
+    }
+    
+    if (newSlots.length === 0) {
+        window.showToast("Các khung giờ bạn chọn đã có người đặt trước!", true);
+        window.tempSelectedSlots.clear();
+        await renderBookingTable();
+        return;
+    }
+    
+    const allSlots = [...existingSlots, ...newSlots];
+    await setDoc(bookingDocRef, {
+        date: dateStr,
+        userId: user.uid,
+        userName: user.displayName,
+        phone: user.phoneNumber,
+        slots: allSlots,
+        createdAt: new Date()
+    });
+    
+    window.showToast(`Đặt sân thành công! Đã đặt ${newSlots.length} khung giờ.`);
+    window.tempSelectedSlots.clear();
+    await renderBookingTable();
+}
+
+function clearAllSelection() {
+    if (window.tempSelectedSlots.size === 0) {
+        window.showToast("Không có khung giờ nào được chọn!", true);
+        return;
+    }
+    window.tempSelectedSlots.clear();
+    renderBookingTable();
+    window.showToast("Đã bỏ chọn tất cả khung giờ!");
+}
+
 async function register() {
     const nickname = document.getElementById("regName").value.trim();
     const phone = document.getElementById("regPhone").value.trim();
@@ -216,7 +280,8 @@ async function login() {
     localStorage.setItem("currentUser", JSON.stringify(window.currentUser));
     updateAuthUI();
     closeModals();
-    renderBookingTable();
+    window.tempSelectedSlots.clear();
+    await renderBookingTable();
     window.showToast(`Chào mừng ${userData.name}`);
 }
 
@@ -224,6 +289,7 @@ function logout() {
     window.currentUser = null;
     localStorage.removeItem("currentUser");
     updateAuthUI();
+    window.tempSelectedSlots.clear();
     renderBookingTable();
     window.showToast("Đã đăng xuất");
 }
@@ -253,11 +319,11 @@ function initDatePicker() {
     datePicker.min = today;
     datePicker.addEventListener("change", (e) => {
         window.selectedDate = e.target.value;
+        window.tempSelectedSlots.clear();
         renderBookingTable();
     });
 }
 
-// Khởi chạy
 window.onload = () => {
     const savedUser = localStorage.getItem("currentUser");
     if (savedUser) {
@@ -276,8 +342,6 @@ window.onload = () => {
     document.getElementById("gotoRegisterLink").onclick = (e) => { e.preventDefault(); closeModals(); document.getElementById("registerModal").style.display = "flex"; };
     document.getElementById("gotoLoginLink").onclick = (e) => { e.preventDefault(); closeModals(); document.getElementById("loginModal").style.display = "flex"; };
     document.getElementById("logoutBtn").onclick = logout;
-    document.getElementById("confirmBookingBtn").onclick = () => {
-        if (!window.currentUser) window.showToast("Vui lòng đăng nhập!", true);
-        else window.showToast("Yêu cầu đã gửi đến quản lý!");
-    };
+    document.getElementById("confirmBookingBtn").onclick = confirmBooking;
+    document.getElementById("clearSelectionBtn").onclick = clearAllSelection;
 };
