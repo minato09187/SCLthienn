@@ -1,8 +1,11 @@
-// Lấy supabase client từ window
+// ========== LẤY SUPABASE CLIENT ==========
+// KHÔNG TẠO MOCK - CHỈ LẤY CLIENT THẬT
 let supabase = window.supabaseClient;
 
 if (!supabase) {
-    console.error("❌ Supabase Client chưa sẵn sàng!");
+    console.error("❌ KHÔNG THỂ KẾT NỐI ĐẾN SUPABASE!");
+    console.error("⚠️ Vui lòng kiểm tra kết nối mạng và tải lại trang!");
+    // KHÔNG TẠO MOCK - ĐỂ LỖI HIỆN RÕ
 }
 
 window.supabase = supabase;
@@ -34,6 +37,7 @@ async function renderAdminTable() {
     
     if (!supabase) {
         console.warn("⏳ Supabase chưa sẵn sàng");
+        container.innerHTML = "<p style='color:red;'>❌ Chưa kết nối được Supabase!</p>";
         return;
     }
     
@@ -45,13 +49,20 @@ async function renderAdminTable() {
             .select('*')
             .eq('date', dateStr);
             
-        if (!error && data) bookings = data;
+        if (error) {
+            console.error("Lỗi tải lịch sân:", error);
+            container.innerHTML = `<p style='color:red;'>Lỗi: ${error.message}</p>`;
+            return;
+        }
+        bookings = data || [];
     } catch (err) {
         console.error("Lỗi tải lịch sân:", err);
+        container.innerHTML = `<p style='color:red;'>Lỗi: ${err.message}</p>`;
+        return;
     }
 
     const slotMap = new Map();
-    (bookings || []).forEach(row => {
+    bookings.forEach(row => {
         if (row.slots && Array.isArray(row.slots)) {
             row.slots.forEach(slotObj => {
                 const key = Object.keys(slotObj)[0];
@@ -115,14 +126,24 @@ async function renderAdminTable() {
 }
 
 async function updateSlotStatus(key, newStatus) {
+    if (!supabase) {
+        window.showToast("Supabase chưa sẵn sàng!", true);
+        return;
+    }
+    
     try {
         const dateStr = window.selectedDate;
-        const { data: bookings } = await supabase
+        const { data: bookings, error } = await supabase
             .from('bookings')
             .select('*')
             .eq('date', dateStr);
 
-        if (!bookings) return;
+        if (error) {
+            window.showToast("Lỗi tải dữ liệu!", true);
+            return;
+        }
+
+        if (!bookings || bookings.length === 0) return;
 
         for (const row of bookings) {
             if (row.slots && Array.isArray(row.slots)) {
@@ -146,19 +167,28 @@ async function updateSlotStatus(key, newStatus) {
         }
     } catch (err) {
         console.error("Lỗi cập nhật trạng thái sân:", err);
+        window.showToast("Lỗi cập nhật!", true);
     }
 }
 
 async function deleteSlot(key) {
+    if (!supabase) {
+        window.showToast("Supabase chưa sẵn sàng!", true);
+        return;
+    }
+    
     if (!confirm("Xóa đặt sân này?")) return;
     try {
         const dateStr = window.selectedDate;
-        const { data: bookings } = await supabase
+        const { data: bookings, error } = await supabase
             .from('bookings')
             .select('*')
             .eq('date', dateStr);
 
-        if (!bookings) return;
+        if (error || !bookings) {
+            window.showToast("Lỗi tải dữ liệu!", true);
+            return;
+        }
 
         for (const row of bookings) {
             if (row.slots && Array.isArray(row.slots)) {
@@ -175,6 +205,7 @@ async function deleteSlot(key) {
         }
     } catch (err) {
         console.error("Lỗi xóa slot sân:", err);
+        window.showToast("Lỗi xóa!", true);
     }
 }
 
@@ -185,7 +216,7 @@ async function loadProducts() {
     
     if (!supabase) {
         console.warn("⏳ Supabase chưa sẵn sàng");
-        container.innerHTML = "<p style='color:orange;'>Đang kết nối...</p>";
+        container.innerHTML = "<p style='color:red;'>❌ Chưa kết nối được Supabase!</p>";
         return;
     }
 
@@ -346,10 +377,15 @@ async function checkNewOrders() {
     if (!supabase) return;
     
     try {
-        const { data: orders } = await supabase
+        const { data: orders, error } = await supabase
             .from('orders')
             .select('*')
             .order('created_at', { ascending: false });
+        
+        if (error) {
+            console.error("Lỗi kiểm tra đơn hàng mới:", error);
+            return;
+        }
         
         let newCount = 0;
         const now = new Date();
@@ -397,7 +433,11 @@ async function loadOrders() {
             .select('*')
             .order('created_at', { ascending: false });
             
-        if (!error && data) orders = data;
+        if (error) {
+            console.error("Lỗi danh sách đơn hàng:", error);
+            return;
+        }
+        orders = data || [];
     } catch (err) {
         console.error("Lỗi danh sách đơn hàng:", err);
     }
@@ -498,7 +538,11 @@ async function loadNotifications() {
             .select('*')
             .order('created_at', { ascending: false });
 
-        if (!error && data) notifications = data;
+        if (error) {
+            console.error("Lỗi thông báo:", error);
+            return;
+        }
+        notifications = data || [];
     } catch (err) {
         console.error("Lỗi thông báo:", err);
     }
@@ -506,7 +550,7 @@ async function loadNotifications() {
     let html = `<div style="padding: 12px; border-bottom: 1px solid #ddd; font-weight: bold;">📢 THÔNG BÁO ĐẶT SÂN</div>`;
     let count = 0;
     
-    if (!notifications || notifications.length === 0) {
+    if (notifications.length === 0) {
         html += "<div style='padding: 20px; text-align: center;'>Chưa có thông báo</div>";
     } else {
         notifications.forEach(data => {
@@ -569,11 +613,15 @@ async function adminLogin() {
     let correctPwd = "admin123";
 
     try {
-        const { data: settingData } = await supabase
+        const { data: settingData, error } = await supabase
             .from('settings')
             .select('value')
             .eq('key', 'admin')
             .maybeSingle();
+
+        if (error) {
+            console.warn("Lỗi lấy settings:", error);
+        }
 
         if (settingData && settingData.value && settingData.value.password) {
             correctPwd = settingData.value.password;
