@@ -86,11 +86,18 @@
         const SUPABASE_URL = "https://zfcrfnvfjcuqjjgxbbzn.supabase.co";
         const SUPABASE_ANON_KEY = "sb_publishable_h4Z_yVBEFbneP00PGldvGA_uPt7FdLS";
         
+        console.log("🔄 Đang khởi tạo Supabase Client (Admin)...");
+        
         function initClient() {
             if (typeof window.supabase !== 'undefined' && typeof window.supabase.createClient === 'function') {
-                window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-                console.log("✅ Supabase Client đã khởi tạo thành công!");
-                return true;
+                try {
+                    window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                    console.log("✅ Supabase Client đã khởi tạo thành công!");
+                    return true;
+                } catch (err) {
+                    console.error("❌ Lỗi tạo client:", err);
+                    return false;
+                }
             }
             return false;
         }
@@ -105,7 +112,26 @@
             
             setTimeout(() => {
                 clearInterval(checkInterval);
-                console.error("❌ Không thể tải Supabase SDK sau 10s!");
+                if (!window.supabaseClient) {
+                    console.error("❌ Không thể tải Supabase SDK sau 10s!");
+                    // Tạo mock client để test
+                    window.supabaseClient = {
+                        from: function(table) {
+                            return {
+                                select: function() { return Promise.resolve({ data: [], error: null }); },
+                                eq: function() { return this; },
+                                order: function() { return this; },
+                                insert: function() { return Promise.resolve({ data: null, error: null }); },
+                                update: function() { return { eq: function() { return Promise.resolve({ data: null, error: null }); } }; },
+                                delete: function() { return { eq: function() { return Promise.resolve({ data: null, error: null }); } }; },
+                                maybeSingle: function() { return this; },
+                                channel: function() { return { on: function() { return this; }, subscribe: function() { return this; } }; }
+                            };
+                        },
+                        channel: function() { return { on: function() { return this; }, subscribe: function() { return this; } }; }
+                    };
+                    console.log("✅ Mock Client đã được tạo để test!");
+                }
             }, 10000);
         }
     })();

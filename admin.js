@@ -1,105 +1,9 @@
-// ========== KIỂM TRA SUPABASE CLIENT ==========
-if (typeof window.supabaseClient === 'undefined') {
-    console.error("❌ supabaseClient chưa được khởi tạo!");
-    // Tạo mock client để không bị lỗi
-    window.supabaseClient = {
-        from: function(table) {
-            console.warn(`⚠️ Đang dùng mock client cho bảng: ${table}`);
-            return {
-                select: function() { 
-                    console.log(`📊 SELECT từ ${table} (mock)`);
-                    if (table === 'products') {
-                        return Promise.resolve({
-                            data: [
-                                { id: 1, name: 'Cầu lông Hải Yến (Mock)', category: 'shuttlecock', price: 120000, stock: 100 },
-                                { id: 2, name: 'Vợt Yonex (Mock)', category: 'racket', price: 2500000, stock: 20 },
-                                { id: 3, name: 'Cầu lông Victor (Mock)', category: 'shuttlecock', price: 150000, stock: 80 }
-                            ],
-                            error: null
-                        });
-                    }
-                    if (table === 'settings') {
-                        return Promise.resolve({
-                            data: [{ key: 'admin', value: { password: 'admin123' } }],
-                            error: null
-                        });
-                    }
-                    if (table === 'users') {
-                        return Promise.resolve({
-                            data: [{ name: 'Admin', phone: '0961932175', password: 'admin123' }],
-                            error: null
-                        });
-                    }
-                    if (table === 'orders') {
-                        return Promise.resolve({ data: [], error: null });
-                    }
-                    if (table === 'notifications') {
-                        return Promise.resolve({ data: [], error: null });
-                    }
-                    return Promise.resolve({ data: [], error: null });
-                },
-                eq: function(field, value) {
-                    console.log(`   WHERE ${field} = ${value}`);
-                    return {
-                        select: function() { return Promise.resolve({ data: [], error: null }); },
-                        maybeSingle: function() { return Promise.resolve({ data: null, error: null }); }
-                    };
-                },
-                order: function(column, options) {
-                    console.log(`📊 ORDER BY ${column}`);
-                    return {
-                        select: function() { return Promise.resolve({ data: [], error: null }); }
-                    };
-                },
-                insert: function(data) {
-                    console.log(`📝 INSERT vào ${table}:`, data);
-                    return Promise.resolve({ data: { id: Date.now() }, error: null });
-                },
-                update: function(data) {
-                    console.log(`✏️ UPDATE ${table}:`, data);
-                    return {
-                        eq: function(field, value) {
-                            console.log(`   WHERE ${field} = ${value}`);
-                            return Promise.resolve({ data: null, error: null });
-                        }
-                    };
-                },
-                delete: function() {
-                    console.log(`🗑️ DELETE từ ${table}`);
-                    return {
-                        eq: function(field, value) {
-                            console.log(`   WHERE ${field} = ${value}`);
-                            return Promise.resolve({ data: null, error: null });
-                        }
-                    };
-                },
-                maybeSingle: function() {
-                    return {
-                        select: function() { return Promise.resolve({ data: null, error: null }); }
-                    };
-                },
-                channel: function(name) {
-                    console.log(`📡 Channel ${name}`);
-                    return {
-                        on: function() { return this; },
-                        subscribe: function() { return this; }
-                    };
-                }
-            };
-        },
-        channel: function(name) {
-            console.log(`📡 Channel ${name}`);
-            return {
-                on: function() { return this; },
-                subscribe: function() { return this; }
-            };
-        }
-    };
-    console.log("✅ Mock Supabase Client đã sẵn sàng!");
-}
-
-// ========== ĐỊNH NGHĨA SUPABASE ==========
+// Lấy supabase client từ window
 const supabase = window.supabaseClient;
+
+if (!supabase) {
+    console.error("❌ Supabase Client chưa sẵn sàng!");
+}
 
 window.supabase = supabase;
 window.adminLoggedIn = false;
@@ -128,16 +32,15 @@ async function renderAdminTable() {
     const container = document.getElementById("adminTable");
     if (!container || !window.adminLoggedIn) return;
     
-    if (!window.supabaseClient) {
-        console.warn("⏳ Supabase chưa sẵn sàng, thử lại...");
-        setTimeout(renderAdminTable, 500);
+    if (!supabase) {
+        console.warn("⏳ Supabase chưa sẵn sàng");
         return;
     }
     
     let bookings = [];
     try {
         const dateStr = window.selectedDate;
-        const { data, error } = await window.supabaseClient
+        const { data, error } = await supabase
             .from('bookings')
             .select('*')
             .eq('date', dateStr);
@@ -214,7 +117,7 @@ async function renderAdminTable() {
 async function updateSlotStatus(key, newStatus) {
     try {
         const dateStr = window.selectedDate;
-        const { data: bookings } = await window.supabaseClient
+        const { data: bookings } = await supabase
             .from('bookings')
             .select('*')
             .eq('date', dateStr);
@@ -231,7 +134,7 @@ async function updateSlotStatus(key, newStatus) {
                     return slotObj;
                 });
                 
-                await window.supabaseClient
+                await supabase
                     .from('bookings')
                     .update({ slots: updatedSlots })
                     .eq('id', row.id);
@@ -250,7 +153,7 @@ async function deleteSlot(key) {
     if (!confirm("Xóa đặt sân này?")) return;
     try {
         const dateStr = window.selectedDate;
-        const { data: bookings } = await window.supabaseClient
+        const { data: bookings } = await supabase
             .from('bookings')
             .select('*')
             .eq('date', dateStr);
@@ -261,9 +164,9 @@ async function deleteSlot(key) {
             if (row.slots && Array.isArray(row.slots)) {
                 const updatedSlots = row.slots.filter(slotObj => Object.keys(slotObj)[0] !== key);
                 if (updatedSlots.length === 0) {
-                    await window.supabaseClient.from('bookings').delete().eq('id', row.id);
+                    await supabase.from('bookings').delete().eq('id', row.id);
                 } else {
-                    await window.supabaseClient.from('bookings').update({ slots: updatedSlots }).eq('id', row.id);
+                    await supabase.from('bookings').update({ slots: updatedSlots }).eq('id', row.id);
                 }
                 window.showToast("Đã xóa đặt sân!");
                 renderAdminTable();
@@ -280,29 +183,25 @@ async function loadProducts() {
     const container = document.getElementById("productsList");
     if (!container) return;
     
-    // KIỂM TRA SUPABASE CÓ SẴN SÀNG KHÔNG
-    if (!window.supabaseClient) {
-        console.error("❌ Supabase chưa sẵn sàng!");
-        container.innerHTML = "<p style='color:orange;'>Đang kết nối đến Supabase, vui lòng đợi...</p>";
-        setTimeout(loadProducts, 1000);
+    if (!supabase) {
+        console.warn("⏳ Supabase chưa sẵn sàng");
+        container.innerHTML = "<p style='color:orange;'>Đang kết nối...</p>";
         return;
     }
 
     let products = [];
     try {
-        console.log("📊 Đang tải sản phẩm từ Supabase...");
-        const { data, error } = await window.supabaseClient
+        const { data, error } = await supabase
             .from('products')
             .select('*')
             .order('created_at', { ascending: false });
             
         if (error) {
-            console.error("❌ Lỗi tải sản phẩm:", error);
-            container.innerHTML = `<p style='color:red;'>Lỗi tải sản phẩm: ${error.message}</p>`;
+            console.error("Lỗi tải sản phẩm:", error);
+            container.innerHTML = `<p style='color:red;'>Lỗi: ${error.message}</p>`;
             return;
         }
         
-        console.log(`✅ Đã tải ${data ? data.length : 0} sản phẩm:`, data);
         products = data || [];
 
         if (products.length === 0) {
@@ -339,13 +238,13 @@ async function loadProducts() {
         });
         container.innerHTML = html;
     } catch (err) {
-        console.error("❌ Lỗi tải sản phẩm:", err);
-        container.innerHTML = `<p style='color:red;'>Lỗi tải sản phẩm: ${err.message}</p>`;
+        console.error("Lỗi tải sản phẩm:", err);
+        container.innerHTML = `<p style='color:red;'>Lỗi: ${err.message}</p>`;
     }
 }
 
 window.updateProduct = async (id) => {
-    if (!window.supabaseClient) {
+    if (!supabase) {
         window.showToast("Supabase chưa sẵn sàng!", true);
         return;
     }
@@ -361,7 +260,7 @@ window.updateProduct = async (id) => {
     }
     
     try {
-        const { error } = await window.supabaseClient
+        const { error } = await supabase
             .from('products')
             .update({ stock: newStock, price: newPrice })
             .eq('id', id);
@@ -379,14 +278,14 @@ window.updateProduct = async (id) => {
 };
 
 window.deleteProduct = async (id) => {
-    if (!window.supabaseClient) {
+    if (!supabase) {
         window.showToast("Supabase chưa sẵn sàng!", true);
         return;
     }
     
     if (confirm("Bạn có chắc muốn xóa sản phẩm này?")) {
         try {
-            await window.supabaseClient.from('products').delete().eq('id', id);
+            await supabase.from('products').delete().eq('id', id);
             window.showToast("Đã xóa sản phẩm!");
             loadProducts();
         } catch (err) {
@@ -396,7 +295,7 @@ window.deleteProduct = async (id) => {
 };
 
 async function addProduct() {
-    if (!window.supabaseClient) {
+    if (!supabase) {
         window.showToast("Supabase chưa sẵn sàng!", true);
         return;
     }
@@ -417,7 +316,7 @@ async function addProduct() {
     }
     
     try {
-        const { error } = await window.supabaseClient
+        const { error } = await supabase
             .from('products')
             .insert({
                 name: name,
@@ -444,10 +343,10 @@ async function addProduct() {
 
 // ========== QUẢN LÝ ĐƠN HÀNG ==========
 async function checkNewOrders() {
-    if (!window.supabaseClient) return;
+    if (!supabase) return;
     
     try {
-        const { data: orders } = await window.supabaseClient
+        const { data: orders } = await supabase
             .from('orders')
             .select('*')
             .order('created_at', { ascending: false });
@@ -486,15 +385,14 @@ async function loadOrders() {
     const container = document.getElementById("ordersList");
     if (!container) return;
     
-    if (!window.supabaseClient) {
-        console.warn("⏳ Supabase chưa sẵn sàng, thử lại...");
-        setTimeout(loadOrders, 500);
+    if (!supabase) {
+        console.warn("⏳ Supabase chưa sẵn sàng");
         return;
     }
     
     let orders = [];
     try {
-        const { data, error } = await window.supabaseClient
+        const { data, error } = await supabase
             .from('orders')
             .select('*')
             .order('created_at', { ascending: false });
@@ -538,9 +436,9 @@ async function loadOrders() {
 }
 
 window.markOrderRead = async (id) => {
-    if (!window.supabaseClient) return;
+    if (!supabase) return;
     try {
-        await window.supabaseClient.from('orders').update({ admin_read: true }).eq('id', id);
+        await supabase.from('orders').update({ admin_read: true }).eq('id', id);
         window.showToast("Đã đánh dấu đã xem!");
         loadOrders();
         checkNewOrders();
@@ -550,10 +448,10 @@ window.markOrderRead = async (id) => {
 };
 
 window.deleteOrder = async (id) => {
-    if (!window.supabaseClient) return;
+    if (!supabase) return;
     if (confirm("Xóa đơn hàng này?")) {
         try {
-            await window.supabaseClient.from('orders').delete().eq('id', id);
+            await supabase.from('orders').delete().eq('id', id);
             window.showToast("Đã xóa đơn hàng!");
             loadOrders();
             checkNewOrders();
@@ -564,9 +462,9 @@ window.deleteOrder = async (id) => {
 };
 
 function startOrderListener() {
-    if (!window.supabaseClient) return;
+    if (!supabase) return;
     try {
-        window.supabaseClient
+        supabase
             .channel('public:orders')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
                 if (window.adminLoggedIn) {
@@ -588,15 +486,14 @@ async function loadNotifications() {
     const notifList = document.getElementById("notificationPanel");
     if (!notifList) return;
     
-    if (!window.supabaseClient) {
-        console.warn("⏳ Supabase chưa sẵn sàng, thử lại...");
-        setTimeout(loadNotifications, 500);
+    if (!supabase) {
+        console.warn("⏳ Supabase chưa sẵn sàng");
         return;
     }
     
     let notifications = [];
     try {
-        const { data, error } = await window.supabaseClient
+        const { data, error } = await supabase
             .from('notifications')
             .select('*')
             .order('created_at', { ascending: false });
@@ -637,7 +534,7 @@ async function loadNotifications() {
             const id = el.dataset.id;
             if (id) {
                 try {
-                    await window.supabaseClient.from('notifications').update({ read: true }).eq('id', id);
+                    await supabase.from('notifications').update({ read: true }).eq('id', id);
                     loadNotifications();
                 } catch (err) {
                     console.error("Lỗi đọc thông báo:", err);
@@ -648,9 +545,9 @@ async function loadNotifications() {
 }
 
 function startNotificationListener() {
-    if (!window.supabaseClient) return;
+    if (!supabase) return;
     try {
-        window.supabaseClient
+        supabase
             .channel('public:notifications')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => {
                 if (window.adminLoggedIn) loadNotifications();
@@ -663,7 +560,7 @@ function startNotificationListener() {
 
 // ========== ADMIN AUTH ==========
 async function adminLogin() {
-    if (!window.supabaseClient) {
+    if (!supabase) {
         window.showToast("Supabase chưa sẵn sàng, vui lòng thử lại!", true);
         return;
     }
@@ -672,7 +569,7 @@ async function adminLogin() {
     let correctPwd = "admin123";
 
     try {
-        const { data: settingData } = await window.supabaseClient
+        const { data: settingData } = await supabase
             .from('settings')
             .select('value')
             .eq('key', 'admin')

@@ -1,5 +1,11 @@
 (function() {
+    // Lấy supabase client từ window
     const supabase = window.supabaseClient;
+    
+    if (!supabase) {
+        console.error("❌ Supabase Client chưa sẵn sàng!");
+        // Không tạo mock, để lỗi hiện rõ
+    }
 
     window.currentUser = null;
     window.selectedDate = new Date().toISOString().split('T')[0];

@@ -1,10 +1,9 @@
-// ========== KIỂM TRA SUPABASE CLIENT ==========
-if (typeof window.supabaseClient === 'undefined') {
-    console.error("❌ supabaseClient chưa được khởi tạo!");
-    alert("❌ Không thể kết nối đến Supabase! Vui lòng tải lại trang.");
-}
-
+// Lấy supabase client từ window
 const supabase = window.supabaseClient;
+
+if (!supabase) {
+    console.error("❌ Supabase Client chưa sẵn sàng!");
+}
 
 let currentUser = null;
 let currentCategory = "shuttlecock";
@@ -29,6 +28,11 @@ function isStrongPassword(password) {
 async function loadProducts(category) {
     const container = document.getElementById("productsContainer");
     if (!container) return;
+
+    if (!supabase) {
+        container.innerHTML = "<p style='color:red;'>⚠️ Chưa kết nối được Supabase!</p>";
+        return;
+    }
 
     try {
         const { data: products, error } = await supabase
