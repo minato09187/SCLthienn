@@ -1,5 +1,5 @@
 // Lấy supabase client từ window
-const supabase = window.supabaseClient;
+let supabase = window.supabaseClient;
 
 if (!supabase) {
     console.error("❌ Supabase Client chưa sẵn sàng!");
