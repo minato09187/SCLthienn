@@ -1,20 +1,6 @@
-import { initializeApp } from "firebase/app";
-import { getFirestore, collection, doc, getDoc, getDocs, updateDoc, deleteDoc, query, where, addDoc, setDoc, onSnapshot, orderBy } from "firebase/firestore";
+import { supabase } from "./supabaseClient.js";
 
-const firebaseConfig = {
-    apiKey: "AIzaSyB82QdjDo-glKNndiGtawo0SArTGVZrbqw",
-    authDomain: "sclthienn-ebd45.firebaseapp.com",
-    projectId: "sclthienn-ebd45",
-    storageBucket: "sclthienn-ebd45.firebasestorage.app",
-    messagingSenderId: "171574896796",
-    appId: "1:171574896796:web:12a0c4d00952ace6886559",
-    measurementId: "G-WJB7KFH28M"
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-
-window.db = db;
+window.supabase = supabase;
 window.adminLoggedIn = false;
 window.selectedDate = new Date().toISOString().split('T')[0];
 window.courtsCount = 6;
@@ -29,6 +15,7 @@ for (let i = 0; i < 24; i++) {
 
 window.showToast = (msg, isError = false) => {
     const toast = document.getElementById('toastMsg');
+    if (!toast) return;
     toast.textContent = msg;
     toast.style.backgroundColor = isError ? '#dc2626' : '#10b981';
     toast.style.display = 'block';
@@ -41,15 +28,17 @@ async function renderAdminTable() {
     if (!container || !window.adminLoggedIn) return;
     
     const dateStr = window.selectedDate;
-    const bookingsRef = collection(db, "bookings");
-    const q = query(bookingsRef, where("date", "==", dateStr));
-    const snapshot = await getDocs(q);
+    const { data: bookings, error } = await supabase
+        .from('bookings')
+        .select('*')
+        .eq('date', dateStr);
+        
+    if (error) console.error("Lỗi tải lịch sân:", error);
+
     const slotMap = new Map();
-    
-    snapshot.forEach(docSnap => {
-        const data = docSnap.data();
-        if (data.slots) {
-            data.slots.forEach(slotObj => {
+    (bookings || []).forEach(row => {
+        if (row.slots && Array.isArray(row.slots)) {
+            row.slots.forEach(slotObj => {
                 const key = Object.keys(slotObj)[0];
                 slotMap.set(key, slotObj[key]);
             });
@@ -60,7 +49,7 @@ async function renderAdminTable() {
     for (let i = 0; i < window.timeSlots.length; i++) {
         html += `<th>${window.timeSlots[i]}</th>`;
     }
-    html += `<tr></thead><tbody>`;
+    html += `</tr></thead><tbody>`;
     
     for (let c = 1; c <= window.courtsCount; c++) {
         html += `<tr><td class="court-label">Sân ${c}</td>`;
@@ -112,21 +101,28 @@ async function renderAdminTable() {
 
 async function updateSlotStatus(key, newStatus) {
     const dateStr = window.selectedDate;
-    const bookingsRef = collection(db, "bookings");
-    const q = query(bookingsRef, where("date", "==", dateStr));
-    const snapshot = await getDocs(q);
-    
-    for (const docSnap of snapshot.docs) {
-        const data = docSnap.data();
-        if (data.slots) {
-            const updatedSlots = data.slots.map(slotObj => {
+    const { data: bookings } = await supabase
+        .from('bookings')
+        .select('*')
+        .eq('date', dateStr);
+
+    if (!bookings) return;
+
+    for (const row of bookings) {
+        if (row.slots && Array.isArray(row.slots)) {
+            const updatedSlots = row.slots.map(slotObj => {
                 const slotKey = Object.keys(slotObj)[0];
                 if (slotKey === key) {
                     return { [slotKey]: { ...slotObj[slotKey], status: newStatus } };
                 }
                 return slotObj;
             });
-            await updateDoc(docSnap.ref, { slots: updatedSlots });
+            
+            await supabase
+                .from('bookings')
+                .update({ slots: updatedSlots })
+                .eq('id', row.id);
+
             window.showToast(`Đã duyệt đặt sân!`);
             renderAdminTable();
             return;
@@ -138,18 +134,20 @@ async function deleteSlot(key) {
     if (!confirm("Xóa đặt sân này?")) return;
     
     const dateStr = window.selectedDate;
-    const bookingsRef = collection(db, "bookings");
-    const q = query(bookingsRef, where("date", "==", dateStr));
-    const snapshot = await getDocs(q);
-    
-    for (const docSnap of snapshot.docs) {
-        const data = docSnap.data();
-        if (data.slots) {
-            const updatedSlots = data.slots.filter(slotObj => Object.keys(slotObj)[0] !== key);
+    const { data: bookings } = await supabase
+        .from('bookings')
+        .select('*')
+        .eq('date', dateStr);
+
+    if (!bookings) return;
+
+    for (const row of bookings) {
+        if (row.slots && Array.isArray(row.slots)) {
+            const updatedSlots = row.slots.filter(slotObj => Object.keys(slotObj)[0] !== key);
             if (updatedSlots.length === 0) {
-                await deleteDoc(docSnap.ref);
+                await supabase.from('bookings').delete().eq('id', row.id);
             } else {
-                await updateDoc(docSnap.ref, { slots: updatedSlots });
+                await supabase.from('bookings').update({ slots: updatedSlots }).eq('id', row.id);
             }
             window.showToast("Đã xóa đặt sân!");
             renderAdminTable();
@@ -163,12 +161,15 @@ async function loadProducts() {
     const container = document.getElementById("productsList");
     if (!container) return;
     
-    const productsRef = collection(db, "products");
-    const snapshot = await getDocs(productsRef);
-    
+    const { data: products, error } = await supabase
+        .from('products')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+    if (error) console.error("Lỗi danh sách sản phẩm:", error);
+
     let html = "";
-    snapshot.forEach(docSnap => {
-        const product = { id: docSnap.id, ...docSnap.data() };
+    (products || []).forEach(product => {
         const categoryName = {
             shuttlecock: " Cầu",
             racket: "🏸 Vợt",
@@ -182,7 +183,7 @@ async function loadProducts() {
                 <div class="product-info">
                     <strong>${product.name}</strong>
                     <span class="product-category">${categoryName}</span>
-                    <span class="product-price">${product.price.toLocaleString()}đ</span>
+                    <span class="product-price">${Number(product.price).toLocaleString()}đ</span>
                     <span class="product-stock">📦 Còn: ${product.stock}</span>
                 </div>
                 <div class="product-actions">
@@ -198,69 +199,90 @@ async function loadProducts() {
 }
 
 window.updateProduct = async (id) => {
-    const newStock = parseInt(document.getElementById(`editStock_${id}`).value);
-    const newPrice = parseInt(document.getElementById(`editPrice_${id}`).value);
+    const stockEl = document.getElementById(`editStock_${id}`);
+    const priceEl = document.getElementById(`editPrice_${id}`);
+    const newStock = parseInt(stockEl ? stockEl.value : "0");
+    const newPrice = parseInt(priceEl ? priceEl.value : "0");
     
     if (isNaN(newStock) || isNaN(newPrice)) {
         window.showToast("Vui lòng nhập số hợp lệ!", true);
         return;
     }
     
-    const productRef = doc(db, "products", id);
-    await updateDoc(productRef, { stock: newStock, price: newPrice });
+    const { error } = await supabase
+        .from('products')
+        .update({ stock: newStock, price: newPrice })
+        .eq('id', id);
+
+    if (error) {
+        window.showToast("Cập nhật sản phẩm thất bại!", true);
+        return;
+    }
+
     window.showToast("Cập nhật sản phẩm thành công!");
     loadProducts();
 };
 
 window.deleteProduct = async (id) => {
     if (confirm("Bạn có chắc muốn xóa sản phẩm này?")) {
-        await deleteDoc(doc(db, "products", id));
+        await supabase.from('products').delete().eq('id', id);
         window.showToast("Đã xóa sản phẩm!");
         loadProducts();
     }
 };
 
 async function addProduct() {
-    const name = document.getElementById("productName").value.trim();
-    const category = document.getElementById("productCategory").value;
-    const price = parseInt(document.getElementById("productPrice").value);
-    const stock = parseInt(document.getElementById("productStock").value);
+    const nameInput = document.getElementById("productName");
+    const categorySelect = document.getElementById("productCategory");
+    const priceInput = document.getElementById("productPrice");
+    const stockInput = document.getElementById("productStock");
+
+    const name = nameInput ? nameInput.value.trim() : "";
+    const category = categorySelect ? categorySelect.value : "shuttlecock";
+    const price = parseInt(priceInput ? priceInput.value : "");
+    const stock = parseInt(stockInput ? stockInput.value : "");
     
     if (!name || isNaN(price) || isNaN(stock)) {
         window.showToast("Vui lòng nhập đầy đủ thông tin!", true);
         return;
     }
     
-    const productsRef = collection(db, "products");
-    await addDoc(productsRef, {
-        name: name,
-        category: category,
-        price: price,
-        stock: stock,
-        createdAt: new Date()
-    });
+    const { error } = await supabase
+        .from('products')
+        .insert({
+            name: name,
+            category: category,
+            price: price,
+            stock: stock
+        });
+
+    if (error) {
+        console.error("Lỗi thêm sản phẩm:", error);
+        window.showToast("Thêm sản phẩm thất bại!", true);
+        return;
+    }
     
     window.showToast("Thêm sản phẩm thành công!");
-    document.getElementById("productName").value = "";
-    document.getElementById("productPrice").value = "";
-    document.getElementById("productStock").value = "";
+    if (nameInput) nameInput.value = "";
+    if (priceInput) priceInput.value = "";
+    if (stockInput) stockInput.value = "";
     loadProducts();
 }
 
-// ========== QUẢN LÝ ĐƠN HÀNG (có chấm đỏ) ==========
+// ========== QUẢN LÝ ĐƠN HÀNG ==========
 async function checkNewOrders() {
-    const ordersRef = collection(db, "orders");
-    const q = query(ordersRef, orderBy("createdAt", "desc"));
-    const snapshot = await getDocs(q);
+    const { data: orders } = await supabase
+        .from('orders')
+        .select('*')
+        .order('created_at', { ascending: false });
     
     let newCount = 0;
     const now = new Date();
     
-    snapshot.forEach(docSnap => {
-        const order = docSnap.data();
-        const createdAt = order.createdAt?.toDate?.() || new Date(order.createdAt);
+    (orders || []).forEach(order => {
+        const createdAt = new Date(order.created_at);
         const diffMinutes = (now - createdAt) / (1000 * 60);
-        if (diffMinutes <= 30 && !order.adminRead) {
+        if (diffMinutes <= 30 && !order.admin_read) {
             newCount++;
         }
     });
@@ -285,21 +307,23 @@ async function loadOrders() {
     const container = document.getElementById("ordersList");
     if (!container) return;
     
-    const ordersRef = collection(db, "orders");
-    const q = query(ordersRef, orderBy("createdAt", "desc"));
-    const snapshot = await getDocs(q);
-    
+    const { data: orders, error } = await supabase
+        .from('orders')
+        .select('*')
+        .order('created_at', { ascending: false });
+        
+    if (error) console.error("Lỗi danh sách đơn hàng:", error);
+
     let html = "";
-    snapshot.forEach(docSnap => {
-        const order = { id: docSnap.id, ...docSnap.data() };
-        const date = order.createdAt?.toDate?.() || new Date(order.createdAt);
-        const isNew = !order.adminRead;
+    (orders || []).forEach(order => {
+        const date = new Date(order.created_at);
+        const isNew = !order.admin_read;
         
         html += `
             <div class="order-item ${isNew ? 'order-new' : ''}" data-id="${order.id}">
                 <div class="order-header">
-                    <strong>👤 ${order.userName}</strong>
-                    <span>📞 ${order.userPhone}</span>
+                    <strong>👤 ${order.customer_name || 'Khách'}</strong>
+                    <span>📞 ${order.customer_phone || ''}</span>
                     <span>📍 ${order.address || 'Chưa có địa chỉ'}</span>
                     <span>📅 ${date.toLocaleDateString()} ${date.toLocaleTimeString()}</span>
                     ${isNew ? '<span class="new-badge">🆕 Mới</span>' : ''}
@@ -312,7 +336,7 @@ async function loadOrders() {
                     `).join('') || ''}
                 </div>
                 <div class="order-total">
-                    <strong>Tổng: ${order.total?.toLocaleString() || 0}đ</strong>
+                    <strong>Tổng: ${Number(order.total_price || 0).toLocaleString()}đ</strong>
                     <button onclick="markOrderRead('${order.id}')" style="background:#10b981;">✅ Đã xem</button>
                     <button onclick="deleteOrder('${order.id}')" style="background:#ef4444;">🗑️ Xóa</button>
                 </div>
@@ -324,8 +348,7 @@ async function loadOrders() {
 }
 
 window.markOrderRead = async (id) => {
-    const orderRef = doc(db, "orders", id);
-    await updateDoc(orderRef, { adminRead: true, readAt: new Date() });
+    await supabase.from('orders').update({ admin_read: true }).eq('id', id);
     window.showToast("Đã đánh dấu đã xem!");
     loadOrders();
     checkNewOrders();
@@ -333,7 +356,7 @@ window.markOrderRead = async (id) => {
 
 window.deleteOrder = async (id) => {
     if (confirm("Xóa đơn hàng này?")) {
-        await deleteDoc(doc(db, "orders", id));
+        await supabase.from('orders').delete().eq('id', id);
         window.showToast("Đã xóa đơn hàng!");
         loadOrders();
         checkNewOrders();
@@ -341,76 +364,92 @@ window.deleteOrder = async (id) => {
 };
 
 function startOrderListener() {
-    onSnapshot(collection(db, "orders"), () => {
-        if (window.adminLoggedIn) {
-            checkNewOrders();
-            const activeTab = document.querySelector('.admin-tab.active');
-            if (activeTab && activeTab.dataset.tab === "orders") {
-                loadOrders();
+    supabase
+        .channel('public:orders')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+            if (window.adminLoggedIn) {
+                checkNewOrders();
+                const activeTab = document.querySelector('.admin-tab.active');
+                if (activeTab && activeTab.dataset.tab === "orders") {
+                    loadOrders();
+                }
             }
-        }
-    });
+        })
+        .subscribe();
 }
 
 // ========== THÔNG BÁO ĐẶT SÂN ==========
-function loadNotifications() {
+async function loadNotifications() {
     const notifList = document.getElementById("notificationPanel");
     if (!notifList) return;
     
-    const q = query(collection(db, "notifications"), orderBy("createdAt", "desc"));
-    getDocs(q).then(snapshot => {
-        let html = `<div style="padding: 12px; border-bottom: 1px solid #ddd; font-weight: bold;">📢 THÔNG BÁO ĐẶT SÂN</div>`;
-        let count = 0;
-        
-        if (snapshot.empty) {
-            html += "<div style='padding: 20px; text-align: center;'>Chưa có thông báo</div>";
-        } else {
-            snapshot.forEach(docSn => {
-                const data = docSn.data();
-                if (!data.read) count++;
-                html += `
-                    <div class="notif-item ${!data.read ? 'unread' : ''}" data-id="${docSn.id}" style="padding: 12px; border-bottom: 1px solid #eee; cursor:pointer;">
-                        <strong>👤 ${data.userName}</strong><br>
-                        📞 ${data.phone}<br>
-                        🏸 ${data.courtSlots}<br>
-                        📅 ${data.date}
-                    </div>
-                `;
-            });
-        }
-        notifList.innerHTML = html;
-        
-        const badge = document.getElementById("notifBadge");
-        if (badge) {
-            badge.textContent = count;
-            badge.style.display = count > 0 ? "inline-block" : "none";
-        }
-        
-        document.querySelectorAll(".notif-item").forEach(el => {
-            el.onclick = async () => {
-                const id = el.dataset.id;
-                if (id) {
-                    await updateDoc(doc(db, "notifications", id), { read: true });
-                    loadNotifications();
-                }
-            };
+    const { data: notifications, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+    if (error) console.error("Lỗi thông báo:", error);
+
+    let html = `<div style="padding: 12px; border-bottom: 1px solid #ddd; font-weight: bold;">📢 THÔNG BÁO ĐẶT SÂN</div>`;
+    let count = 0;
+    
+    if (!notifications || notifications.length === 0) {
+        html += "<div style='padding: 20px; text-align: center;'>Chưa có thông báo</div>";
+    } else {
+        notifications.forEach(data => {
+            if (!data.read) count++;
+            html += `
+                <div class="notif-item ${!data.read ? 'unread' : ''}" data-id="${data.id}" style="padding: 12px; border-bottom: 1px solid #eee; cursor:pointer;">
+                    <strong>👤 ${data.user_name}</strong><br>
+                    📞 ${data.phone}<br>
+                    🏸 ${data.court_slots}<br>
+                    📅 ${data.date}
+                </div>
+            `;
         });
+    }
+    notifList.innerHTML = html;
+    
+    const badge = document.getElementById("notifBadge");
+    if (badge) {
+        badge.textContent = count;
+        badge.style.display = count > 0 ? "inline-block" : "none";
+    }
+    
+    document.querySelectorAll(".notif-item").forEach(el => {
+        el.onclick = async () => {
+            const id = el.dataset.id;
+            if (id) {
+                await supabase.from('notifications').update({ read: true }).eq('id', id);
+                loadNotifications();
+            }
+        };
     });
 }
 
 function startNotificationListener() {
-    onSnapshot(collection(db, "notifications"), () => {
-        if (window.adminLoggedIn) loadNotifications();
-    });
+    supabase
+        .channel('public:notifications')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => {
+            if (window.adminLoggedIn) loadNotifications();
+        })
+        .subscribe();
 }
 
 // ========== ADMIN AUTH ==========
 async function adminLogin() {
     const pwdInput = document.getElementById("adminPassword").value;
-    const settingsRef = doc(db, "settings", "admin");
-    const docSnap = await getDoc(settingsRef);
+    
+    const { data: settingData } = await supabase
+        .from('settings')
+        .select('value')
+        .eq('key', 'admin')
+        .maybeSingle();
+
     let correctPwd = "admin123";
-    if (docSnap.exists()) correctPwd = docSnap.data().password;
+    if (settingData && settingData.value && settingData.value.password) {
+        correctPwd = settingData.value.password;
+    }
     
     if (pwdInput === correctPwd) {
         window.adminLoggedIn = true;

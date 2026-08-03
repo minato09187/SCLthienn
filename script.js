@@ -1,22 +1,6 @@
-import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, query, where, addDoc } from "firebase/firestore";
+import { supabase } from "./supabaseClient.js";
 
-const firebaseConfig = {
-    apiKey: "AIzaSyB82QdjDo-glKNndiGtawo0SArTGVZrbqw",
-    authDomain: "sclthienn-ebd45.firebaseapp.com",
-    projectId: "sclthienn-ebd45",
-    storageBucket: "sclthienn-ebd45.firebasestorage.app",
-    messagingSenderId: "171574896796",
-    appId: "1:171574896796:web:12a0c4d00952ace6886559",
-    measurementId: "G-WJB7KFH28M"
-};
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-
-window.db = db;
+window.supabase = supabase;
 window.currentUser = null;
 window.selectedDate = new Date().toISOString().split('T')[0];
 window.courtsCount = 6;
@@ -46,16 +30,22 @@ function isStrongPassword(password) {
 
 async function getBookedSlots() {
     const dateStr = window.selectedDate;
-    const bookingsRef = collection(db, "bookings");
-    const q = query(bookingsRef, where("date", "==", dateStr));
-    const snapshot = await getDocs(q);
+    const { data, error } = await supabase
+        .from('bookings')
+        .select('*')
+        .eq('date', dateStr);
+
+    if (error) {
+        console.error("Lỗi lấy dữ liệu đặt sân:", error);
+        return { bookedMap: new Map(), pendingMap: new Map() };
+    }
+
     const bookedMap = new Map();
     const pendingMap = new Map();
     
-    snapshot.forEach(docSnap => {
-        const data = docSnap.data();
-        if (data.slots) {
-            data.slots.forEach(slotObj => {
+    (data || []).forEach(row => {
+        if (row.slots && Array.isArray(row.slots)) {
+            row.slots.forEach(slotObj => {
                 const key = Object.keys(slotObj)[0];
                 const slotData = slotObj[key];
                 if (slotData.status === "confirmed") {
@@ -170,12 +160,16 @@ async function confirmBooking() {
     const user = window.currentUser;
     const dateStr = window.selectedDate;
     const bookingDocId = `${dateStr}_${user.uid}`;
-    const bookingDocRef = doc(db, "bookings", bookingDocId);
     
-    const docSnap = await getDoc(bookingDocRef);
+    const { data: existingData } = await supabase
+        .from('bookings')
+        .select('slots')
+        .eq('id', bookingDocId)
+        .maybeSingle();
+
     let existingSlots = [];
-    if (docSnap.exists() && docSnap.data().slots) {
-        existingSlots = docSnap.data().slots;
+    if (existingData && existingData.slots) {
+        existingSlots = existingData.slots;
     }
     
     const newSlots = [];
@@ -189,33 +183,42 @@ async function confirmBooking() {
                 userName: user.displayName, 
                 phone: user.phoneNumber,
                 status: "pending",
-                createdAt: new Date()
+                createdAt: new Date().toISOString()
             } 
         });
         bookedSlotsInfo.push(`Sân ${court} - ${window.timeSlots[parseInt(hour)]}`);
     }
     
     const allSlots = [...existingSlots, ...newSlots];
-    await setDoc(bookingDocRef, {
-        date: dateStr,
-        userId: user.uid,
-        userName: user.displayName,
-        phone: user.phoneNumber,
-        slots: allSlots,
-        createdAt: new Date()
-    });
-    
-    try {
-        const notifRef = collection(db, "notifications");
-        await addDoc(notifRef, {
-            userName: user.displayName,
-            phone: user.phoneNumber,
-            courtSlots: bookedSlotsInfo.join(", "),
+
+    const { error: bookingErr } = await supabase
+        .from('bookings')
+        .upsert({
+            id: bookingDocId,
             date: dateStr,
-            read: false,
-            createdAt: new Date(),
-            userId: user.uid
+            user_id: user.uid,
+            user_name: user.displayName,
+            phone: user.phoneNumber,
+            slots: allSlots
         });
+
+    if (bookingErr) {
+        console.error("Lỗi đặt sân:", bookingErr);
+        window.showToast("Lỗi đặt sân, vui lòng thử lại!", true);
+        return;
+    }
+
+    try {
+        await supabase
+            .from('notifications')
+            .insert({
+                user_name: user.displayName,
+                phone: user.phoneNumber,
+                court_slots: bookedSlotsInfo.join(", "),
+                date: dateStr,
+                read: false,
+                user_id: user.uid
+            });
     } catch (error) {
         console.error("Lỗi gửi thông báo:", error);
     }
@@ -266,28 +269,39 @@ async function register() {
         return;
     }
     
-    const usersRef = collection(db, "users");
-    
-    const nameQuery = query(usersRef, where("name", "==", nickname));
-    const nameSnap = await getDocs(nameQuery);
-    if (!nameSnap.empty) {
+    const { data: nameSnap } = await supabase
+        .from('users')
+        .select('*')
+        .eq('name', nickname);
+
+    if (nameSnap && nameSnap.length > 0) {
         window.showToast("Biệt danh này đã có người sử dụng!", true);
         return;
     }
     
-    const phoneQuery = query(usersRef, where("phone", "==", phone));
-    const phoneSnap = await getDocs(phoneQuery);
-    if (!phoneSnap.empty) {
+    const { data: phoneSnap } = await supabase
+        .from('users')
+        .select('*')
+        .eq('phone', phone);
+
+    if (phoneSnap && phoneSnap.length > 0) {
         window.showToast("Số điện thoại này đã được đăng ký!", true);
         return;
     }
     
-    await setDoc(doc(usersRef, phone), {
-        name: nickname,
-        phone: phone,
-        password: pwd,
-        createdAt: new Date()
-    });
+    const { error: regErr } = await supabase
+        .from('users')
+        .insert({
+            name: nickname,
+            phone: phone,
+            password: pwd
+        });
+
+    if (regErr) {
+        console.error("Lỗi đăng ký:", regErr);
+        window.showToast("Đăng ký thất bại, vui lòng thử lại!", true);
+        return;
+    }
     
     window.showToast("Đăng ký thành công! Vui lòng đăng nhập.");
     closeModals();
@@ -298,17 +312,21 @@ async function login() {
     const phone = document.getElementById("loginPhone").value.trim();
     const pwd = document.getElementById("loginPwd").value;
     
-    const usersRef = collection(db, "users");
-    const q = query(usersRef, where("phone", "==", phone));
-    const snap = await getDocs(q);
+    if (!phone || !pwd) {
+        window.showToast("Vui lòng nhập đầy đủ thông tin!", true);
+        return;
+    }
+
+    const { data: userData, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('phone', phone)
+        .maybeSingle();
     
-    if (snap.empty) {
+    if (error || !userData) {
         window.showToast("Đã nhập sai sdt hoặc mật khẩu!", true);
         return;
     }
-    
-    let userData = null;
-    snap.forEach(docSnap => { userData = docSnap.data(); });
     
     if (userData.password !== pwd) {
         window.showToast("Đã nhập sai sdt hoặc mật khẩu!", true);
@@ -390,7 +408,6 @@ window.onload = () => {
         };
     }
     
-    // Sự kiện Enter cho đăng nhập
     const loginPhoneInput = document.getElementById("loginPhone");
     if (loginPhoneInput) {
         loginPhoneInput.addEventListener("keypress", (e) => {
@@ -409,7 +426,6 @@ window.onload = () => {
         });
     }
     
-    // Sự kiện Enter cho đăng ký
     const regNameInput = document.getElementById("regName");
     const regPhoneInput = document.getElementById("regPhone");
     const regPwdInput = document.getElementById("regPwd");

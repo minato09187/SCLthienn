@@ -1,20 +1,4 @@
-import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { getFirestore, collection, doc, getDoc, getDocs, updateDoc, addDoc, query, where, setDoc } from "firebase/firestore";
-
-const firebaseConfig = {
-    apiKey: "AIzaSyB82QdjDo-glKNndiGtawo0SArTGVZrbqw",
-    authDomain: "sclthienn-ebd45.firebaseapp.com",
-    projectId: "sclthienn-ebd45",
-    storageBucket: "sclthienn-ebd45.firebasestorage.app",
-    messagingSenderId: "171574896796",
-    appId: "1:171574896796:web:12a0c4d00952ace6886559",
-    measurementId: "G-WJB7KFH28M"
-};
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
+import { supabase } from "./supabaseClient.js";
 
 let currentUser = null;
 let currentCategory = "shuttlecock";
@@ -22,6 +6,7 @@ let cart = JSON.parse(localStorage.getItem("cart") || "{}");
 
 function showToast(msg, isError = false) {
     const toast = document.getElementById("toastMsg");
+    if (!toast) return;
     toast.textContent = msg;
     toast.style.backgroundColor = isError ? "#dc2626" : "#10b981";
     toast.style.display = "block";
@@ -40,22 +25,24 @@ async function loadProducts(category) {
     if (!container) return;
     
     try {
-        const productsRef = collection(db, "products");
-        const q = query(productsRef, where("category", "==", category));
-        const snapshot = await getDocs(q);
+        const { data: products, error } = await supabase
+            .from('products')
+            .select('*')
+            .eq('category', category);
+            
+        if (error) throw error;
         
-        if (snapshot.empty) {
+        if (!products || products.length === 0) {
             container.innerHTML = "<p style='text-align:center; padding:40px;'>Chưa có sản phẩm trong danh mục này</p>";
             return;
         }
         
         let html = "";
-        snapshot.forEach(docSnap => {
-            const product = { id: docSnap.id, ...docSnap.data() };
+        products.forEach(product => {
             html += `
                 <div class="product-card">
                     <h4>${product.name}</h4>
-                    <p class="price">${product.price.toLocaleString()}đ</p>
+                    <p class="price">${Number(product.price).toLocaleString()}đ</p>
                     <p class="stock">📦 Còn: ${product.stock} cái</p>
                     <button onclick="addToCart('${product.id}', '${product.name}', ${product.price}, ${product.stock})" 
                         ${product.stock <= 0 ? 'disabled' : ''}>
@@ -128,7 +115,8 @@ function updateCartUI() {
         html = "<p style='text-align:center; padding:20px;'>🛒 Giỏ hàng trống</p>";
     }
     cartItemsDiv.innerHTML = html;
-    document.getElementById("cartTotal").textContent = total.toLocaleString();
+    const cartTotalEl = document.getElementById("cartTotal");
+    if (cartTotalEl) cartTotalEl.textContent = total.toLocaleString();
 }
 
 window.updateQuantity = (id, delta) => {
@@ -165,43 +153,61 @@ async function submitOrder(address) {
         return;
     }
     
-    // Kiểm tra tồn kho lần cuối
     for (const item of Object.values(cart)) {
-        const productRef = doc(db, "products", item.id);
-        const productSnap = await getDoc(productRef);
-        if (!productSnap.exists() || productSnap.data().stock < item.quantity) {
+        const { data: prodData, error } = await supabase
+            .from('products')
+            .select('stock')
+            .eq('id', item.id)
+            .maybeSingle();
+
+        if (error || !prodData || prodData.stock < item.quantity) {
             showToast(`❌ Sản phẩm ${item.name} không đủ số lượng!`, true);
             return;
         }
     }
     
-    // Trừ số lượng trong kho
     for (const item of Object.values(cart)) {
-        const productRef = doc(db, "products", item.id);
-        const productSnap = await getDoc(productRef);
-        const newStock = productSnap.data().stock - item.quantity;
-        await updateDoc(productRef, { stock: newStock });
+        const { data: prodData } = await supabase
+            .from('products')
+            .select('stock')
+            .eq('id', item.id)
+            .maybeSingle();
+
+        if (prodData) {
+            const newStock = prodData.stock - item.quantity;
+            await supabase
+                .from('products')
+                .update({ stock: newStock })
+                .eq('id', item.id);
+        }
     }
     
-    // Tạo đơn hàng với trường adminRead = false
-    const order = {
-        userName: currentUser.displayName,
-        userPhone: currentUser.phoneNumber,
-        address: address,
-        items: Object.values(cart).map(item => ({
-            name: item.name,
-            quantity: item.quantity,
-            price: item.price
-        })),
-        total: Object.values(cart).reduce((sum, item) => sum + item.price * item.quantity, 0),
-        createdAt: new Date(),
-        status: "pending",
-        adminRead: false  // Đánh dấu admin chưa đọc đơn hàng này
-    };
+    const itemsArray = Object.values(cart).map(item => ({
+        name: item.name,
+        quantity: item.quantity,
+        price: item.price
+    }));
     
-    await addDoc(collection(db, "orders"), order);
+    const totalPrice = Object.values(cart).reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+    const { error: orderErr } = await supabase
+        .from('orders')
+        .insert({
+            customer_name: currentUser.displayName,
+            customer_phone: currentUser.phoneNumber,
+            address: address,
+            items: itemsArray,
+            total_price: totalPrice,
+            status: "pending",
+            admin_read: false
+        });
+
+    if (orderErr) {
+        console.error("Lỗi gửi đơn hàng:", orderErr);
+        showToast("Lỗi đặt hàng, vui lòng thử lại!", true);
+        return;
+    }
     
-    // Xóa giỏ hàng
     cart = {};
     localStorage.setItem("cart", JSON.stringify(cart));
     updateCartUI();
@@ -210,7 +216,6 @@ async function submitOrder(address) {
     loadProducts(currentCategory);
 }
 
-// ========== AUTH FUNCTIONS ==========
 async function register() {
     const nickname = document.getElementById("regName").value.trim();
     const phone = document.getElementById("regPhone").value.trim();
@@ -242,30 +247,39 @@ async function register() {
         return;
     }
     
-    const usersRef = collection(db, "users");
-    
-    // Kiểm tra biệt danh đã tồn tại
-    const nameQuery = query(usersRef, where("name", "==", nickname));
-    const nameSnap = await getDocs(nameQuery);
-    if (!nameSnap.empty) {
+    const { data: nameSnap } = await supabase
+        .from('users')
+        .select('*')
+        .eq('name', nickname);
+
+    if (nameSnap && nameSnap.length > 0) {
         showToast("Biệt danh này đã có người sử dụng!", true);
         return;
     }
     
-    // Kiểm tra số điện thoại đã tồn tại
-    const phoneQuery = query(usersRef, where("phone", "==", phone));
-    const phoneSnap = await getDocs(phoneQuery);
-    if (!phoneSnap.empty) {
+    const { data: phoneSnap } = await supabase
+        .from('users')
+        .select('*')
+        .eq('phone', phone);
+
+    if (phoneSnap && phoneSnap.length > 0) {
         showToast("Số điện thoại này đã được đăng ký!", true);
         return;
     }
     
-    await setDoc(doc(usersRef, phone), {
-        name: nickname,
-        phone: phone,
-        password: pwd,
-        createdAt: new Date()
-    });
+    const { error: regErr } = await supabase
+        .from('users')
+        .insert({
+            name: nickname,
+            phone: phone,
+            password: pwd
+        });
+
+    if (regErr) {
+        console.error("Lỗi đăng ký:", regErr);
+        showToast("Đăng ký thất bại, vui lòng thử lại!", true);
+        return;
+    }
     
     showToast("Đăng ký thành công! Vui lòng đăng nhập.");
     closeModals();
@@ -276,17 +290,16 @@ async function login() {
     const phone = document.getElementById("loginPhone").value.trim();
     const pwd = document.getElementById("loginPwd").value;
     
-    const usersRef = collection(db, "users");
-    const q = query(usersRef, where("phone", "==", phone));
-    const snap = await getDocs(q);
-    
-    if (snap.empty) {
+    const { data: userData, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('phone', phone)
+        .maybeSingle();
+
+    if (error || !userData) {
         showToast("Đã nhập sai sdt hoặc mật khẩu!", true);
         return;
     }
-    
-    let userData = null;
-    snap.forEach(docSnap => { userData = docSnap.data(); });
     
     if (userData.password !== pwd) {
         showToast("Đã nhập sai sdt hoặc mật khẩu!", true);
@@ -328,13 +341,17 @@ function updateAuthUI() {
 }
 
 function closeModals() {
-    document.getElementById("loginModal").style.display = "none";
-    document.getElementById("registerModal").style.display = "none";
-    document.getElementById("cartModal").style.display = "none";
-    document.getElementById("addressModal").style.display = "none";
+    const loginModal = document.getElementById("loginModal");
+    const registerModal = document.getElementById("registerModal");
+    const cartModal = document.getElementById("cartModal");
+    const addressModal = document.getElementById("addressModal");
+
+    if (loginModal) loginModal.style.display = "none";
+    if (registerModal) registerModal.style.display = "none";
+    if (cartModal) cartModal.style.display = "none";
+    if (addressModal) addressModal.style.display = "none";
 }
 
-// ========== KHỞI TẠO ==========
 window.onload = () => {
     const savedUser = localStorage.getItem("currentUser");
     if (savedUser) {
@@ -345,7 +362,6 @@ window.onload = () => {
     loadProducts("shuttlecock");
     updateCartUI();
     
-    // Nút hiện/ẩn mật khẩu
     const togglePasswordBtn = document.getElementById("togglePasswordBtn");
     const loginPwdInput = document.getElementById("loginPwd");
     if (togglePasswordBtn && loginPwdInput) {
@@ -360,7 +376,6 @@ window.onload = () => {
         };
     }
     
-    // Sự kiện Enter cho đăng nhập
     const loginPhoneInput = document.getElementById("loginPhone");
     if (loginPhoneInput) {
         loginPhoneInput.addEventListener("keypress", (e) => {
@@ -379,7 +394,6 @@ window.onload = () => {
         });
     }
     
-    // Sự kiện Enter cho đăng ký
     const regNameInput = document.getElementById("regName");
     const regPhoneInput = document.getElementById("regPhone");
     const regPwdInput = document.getElementById("regPwd");
@@ -396,7 +410,6 @@ window.onload = () => {
         }
     });
     
-    // Category tabs
     document.querySelectorAll(".category-btn").forEach(btn => {
         btn.onclick = () => {
             document.querySelectorAll(".category-btn").forEach(b => b.classList.remove("active"));
@@ -406,7 +419,6 @@ window.onload = () => {
         };
     });
     
-    // Cart events
     const cartBtn = document.getElementById("cartBtn");
     const closeCartBtn = document.getElementById("closeCartBtn");
     const checkoutBtn = document.getElementById("checkoutBtn");
@@ -428,7 +440,8 @@ window.onload = () => {
     }
     if (submitOrderBtn) {
         submitOrderBtn.onclick = () => {
-            const address = document.getElementById("addressInput").value;
+            const addressInput = document.getElementById("addressInput");
+            const address = addressInput ? addressInput.value : "";
             if (!address) {
                 showToast("Vui lòng nhập địa chỉ giao hàng!", true);
                 return;
@@ -438,7 +451,6 @@ window.onload = () => {
     }
     if (closeAddressBtn) closeAddressBtn.onclick = () => document.getElementById("addressModal").style.display = "none";
     
-    // Auth events
     const showLoginBtn = document.getElementById("showLoginBtn");
     const showRegisterBtn = document.getElementById("showRegisterBtn");
     const closeLoginModal = document.getElementById("closeLoginModal");
