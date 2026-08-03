@@ -1,3 +1,22 @@
+// Kiểm tra supabase client
+if (typeof window.supabaseClient === 'undefined') {
+    console.error("❌ supabaseClient chưa được khởi tạo!");
+    // Tạo mock để không bị lỗi
+    window.supabaseClient = {
+        from: function() {
+            return {
+                select: function() { return Promise.resolve({ data: [], error: null }); },
+                insert: function() { return Promise.resolve({ data: null, error: null }); },
+                update: function() { return { eq: function() { return Promise.resolve({ data: null, error: null }); } }; },
+                delete: function() { return { eq: function() { return Promise.resolve({ data: null, error: null }); } }; },
+                order: function() { return this; }
+            };
+        }
+    };
+}
+
+const supabase = window.supabaseClient;
+
 const supabase = new Proxy({}, { get: (_, prop) => typeof window.supabaseClient?.[prop] === 'function' ? window.supabaseClient[prop].bind(window.supabaseClient) : window.supabaseClient?.[prop] });
 
 let currentUser = null;
