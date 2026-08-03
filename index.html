@@ -6,6 +6,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Đặt sân cầu lông - Weplay</title>
     <link rel="stylesheet" href="style.css">
+    <script type="importmap">
+    {
+        "imports": {
+            "@supabase/supabase-js": "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/module/index.js"
+        }
+    }
+    </script>
 </head>
 
 <body>
@@ -67,46 +74,20 @@
     <div id="toastMsg" class="toast"></div>
 
     <!-- ===== SUPABASE SCRIPTS ===== -->
-    <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-    <script>
-        (function() {
-            const SUPABASE_URL = "https://zfcrfnvfjcuqjjgxbbzn.supabase.co";
-            const SUPABASE_ANON_KEY = "sb_publishable_h4Z_yVBEFbneP00PGldvGA_uPt7FdLS";
-            
-            console.log("🔄 Đang khởi tạo Supabase Client...");
-            
-            function initClient() {
-                if (typeof window.supabase !== 'undefined' && typeof window.supabase.createClient === 'function') {
-                    try {
-                        window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-                        console.log("✅ Supabase Client đã khởi tạo thành công!");
-                        return true;
-                    } catch (err) {
-                        console.error("❌ Lỗi tạo client:", err);
-                        return false;
-                    }
-                }
-                return false;
-            }
-            
-            if (!initClient()) {
-                console.warn("⏳ Đang chờ Supabase SDK tải...");
-                const checkInterval = setInterval(() => {
-                    if (initClient()) {
-                        clearInterval(checkInterval);
-                    }
-                }, 500);
-                
-                setTimeout(() => {
-                    clearInterval(checkInterval);
-                    if (!window.supabaseClient) {
-                        console.error("❌ Không thể tải Supabase SDK sau 10s!");
-                    }
-                }, 10000);
-            }
-        })();
+    <script type="module">
+        import { createClient } from '@supabase/supabase-js';
+        
+        const SUPABASE_URL = "https://zfcrfnvfjcuqjjgxbbzn.supabase.co";
+        const SUPABASE_ANON_KEY = "sb_publishable_h4Z_yVBEFbneP00PGldvGA_uPt7FdLS";
+        
+        window.supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        console.log("✅ Supabase Client đã khởi tạo thành công!");
+        
+        // Load script.js sau khi client sẵn sàng
+        const script = document.createElement('script');
+        script.src = "script.js";
+        document.body.appendChild(script);
     </script>
-    <script src="script.js"></script>
 </body>
 
 </html>
