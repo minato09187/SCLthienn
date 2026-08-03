@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Quản lý sân cầu lông - Admin</title>
     <link rel="stylesheet" href="style.css">
-
 </head>
 <body>
 <div class="container">
@@ -80,8 +79,19 @@
 <div class="notification-panel" id="notificationPanel"></div>
 <div id="toastMsg" class="toast"></div>
 
+<!-- ===== SUPABASE SCRIPTS ===== -->
 <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script src="supabaseClient.js"></script>
+<script>
+    const SUPABASE_URL = "https://zfcrfnvfjcuqjjgxbbzn.supabase.co";
+    const SUPABASE_ANON_KEY = "sb_publishable_h4Z_yVBEFbneP00PGldvGA_uPt7FdLS";
+    
+    if (typeof window.supabase !== 'undefined' && typeof window.supabase.createClient === 'function') {
+        window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        console.log("✅ Supabase Client đã khởi tạo thành công!");
+    } else {
+        console.error("❌ Supabase SDK chưa được tải!");
+    }
+</script>
 <script src="admin.js"></script>
 </body>
 </html>

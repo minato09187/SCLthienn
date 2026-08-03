@@ -1,15 +1,10 @@
+// ========== KIỂM TRA SUPABASE CLIENT ==========
 if (typeof window.supabaseClient === 'undefined') {
     console.error("❌ supabaseClient chưa được khởi tạo!");
-    console.error("❌ Vui lòng kiểm tra kết nối mạng và tải lại trang!");
-    // KHÔNG TẠO MOCK - ĐỂ LỖI HIỆN RÕ
+    alert("❌ Không thể kết nối đến Supabase! Vui lòng tải lại trang.");
 }
 
 const supabase = window.supabaseClient;
-
-if (!supabase) {
-    document.getElementById("productsContainer").innerHTML = 
-        '<p style="text-align:center; padding:40px; color:red;">❌ Không thể kết nối đến Supabase! Vui lòng kiểm tra kết nối mạng và tải lại trang.</p>';
-}
 
 let currentUser = null;
 let currentCategory = "shuttlecock";
@@ -167,12 +162,11 @@ async function submitOrder(address) {
     }
 
     try {
-        // Kiểm tra tồn kho
         for (const item of Object.values(cart)) {
             const { data: prodData, error } = await supabase
                 .from('products')
                 .select('stock')
-                .eq('id', parseInt(item.id))  // Ép về số
+                .eq('id', item.id)
                 .maybeSingle();
 
             if (error || !prodData || prodData.stock < item.quantity) {
@@ -181,12 +175,11 @@ async function submitOrder(address) {
             }
         }
 
-        // Trừ tồn kho
         for (const item of Object.values(cart)) {
             const { data: prodData } = await supabase
                 .from('products')
                 .select('stock')
-                .eq('id', parseInt(item.id))  // Ép về số
+                .eq('id', item.id)
                 .maybeSingle();
 
             if (prodData) {
@@ -194,7 +187,7 @@ async function submitOrder(address) {
                 await supabase
                     .from('products')
                     .update({ stock: newStock })
-                    .eq('id', parseInt(item.id));  // Ép về số
+                    .eq('id', item.id);
             }
         }
 

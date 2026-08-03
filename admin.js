@@ -1,19 +1,10 @@
 // ========== KIỂM TRA SUPABASE CLIENT ==========
 if (typeof window.supabaseClient === 'undefined') {
     console.error("❌ supabaseClient chưa được khởi tạo!");
-    console.error("❌ Vui lòng kiểm tra kết nối mạng và tải lại trang!");
+    alert("❌ Không thể kết nối đến Supabase! Vui lòng tải lại trang.");
 }
 
-// ========== ĐỊNH NGHĨA SUPABASE ==========
 const supabase = window.supabaseClient;
-
-// Nếu supabase chưa sẵn sàng, hiển thị lỗi
-if (!supabase) {
-    document.getElementById("adminLoginDiv").innerHTML = 
-        '<h3 style="color:red;">❌ Không thể kết nối đến Supabase!</h3>';
-}
-
-
 
 window.supabase = supabase;
 window.adminLoggedIn = false;
