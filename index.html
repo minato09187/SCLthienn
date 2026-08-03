@@ -68,7 +68,12 @@
     <div id="toastMsg" class="toast"></div>
 
     <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-    <script src="supabaseClient.js"></script>
+    <script>
+        window.supabaseClient = window.supabase.createClient(
+            "https://zfcrfnvfjcuqjjgxbbzn.supabase.co",
+            "sb_publishable_h4Z_yVBEFbneP00PGldvGA_uPt7FdLS"
+        );
+    </script>
     <script src="script.js"></script>
 </body>
 
