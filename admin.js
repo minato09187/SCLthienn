@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient.js";
+const supabase = new Proxy({}, { get: (_, prop) => typeof window.supabaseClient?.[prop] === 'function' ? window.supabaseClient[prop].bind(window.supabaseClient) : window.supabaseClient?.[prop] });
 
 window.supabase = supabase;
 window.adminLoggedIn = false;
@@ -27,13 +27,18 @@ async function renderAdminTable() {
     const container = document.getElementById("adminTable");
     if (!container || !window.adminLoggedIn) return;
     
-    const dateStr = window.selectedDate;
-    const { data: bookings, error } = await supabase
-        .from('bookings')
-        .select('*')
-        .eq('date', dateStr);
-        
-    if (error) console.error("Lỗi tải lịch sân:", error);
+    let bookings = [];
+    try {
+        const dateStr = window.selectedDate;
+        const { data, error } = await supabase
+            .from('bookings')
+            .select('*')
+            .eq('date', dateStr);
+            
+        if (!error && data) bookings = data;
+    } catch (err) {
+        console.error("Lỗi tải lịch sân:", err);
+    }
 
     const slotMap = new Map();
     (bookings || []).forEach(row => {
@@ -100,59 +105,66 @@ async function renderAdminTable() {
 }
 
 async function updateSlotStatus(key, newStatus) {
-    const dateStr = window.selectedDate;
-    const { data: bookings } = await supabase
-        .from('bookings')
-        .select('*')
-        .eq('date', dateStr);
+    try {
+        const dateStr = window.selectedDate;
+        const { data: bookings } = await supabase
+            .from('bookings')
+            .select('*')
+            .eq('date', dateStr);
 
-    if (!bookings) return;
+        if (!bookings) return;
 
-    for (const row of bookings) {
-        if (row.slots && Array.isArray(row.slots)) {
-            const updatedSlots = row.slots.map(slotObj => {
-                const slotKey = Object.keys(slotObj)[0];
-                if (slotKey === key) {
-                    return { [slotKey]: { ...slotObj[slotKey], status: newStatus } };
-                }
-                return slotObj;
-            });
-            
-            await supabase
-                .from('bookings')
-                .update({ slots: updatedSlots })
-                .eq('id', row.id);
+        for (const row of bookings) {
+            if (row.slots && Array.isArray(row.slots)) {
+                const updatedSlots = row.slots.map(slotObj => {
+                    const slotKey = Object.keys(slotObj)[0];
+                    if (slotKey === key) {
+                        return { [slotKey]: { ...slotObj[slotKey], status: newStatus } };
+                    }
+                    return slotObj;
+                });
+                
+                await supabase
+                    .from('bookings')
+                    .update({ slots: updatedSlots })
+                    .eq('id', row.id);
 
-            window.showToast(`Đã duyệt đặt sân!`);
-            renderAdminTable();
-            return;
+                window.showToast(`Đã duyệt đặt sân!`);
+                renderAdminTable();
+                return;
+            }
         }
+    } catch (err) {
+        console.error("Lỗi cập nhật trạng thái sân:", err);
     }
 }
 
 async function deleteSlot(key) {
     if (!confirm("Xóa đặt sân này?")) return;
-    
-    const dateStr = window.selectedDate;
-    const { data: bookings } = await supabase
-        .from('bookings')
-        .select('*')
-        .eq('date', dateStr);
+    try {
+        const dateStr = window.selectedDate;
+        const { data: bookings } = await supabase
+            .from('bookings')
+            .select('*')
+            .eq('date', dateStr);
 
-    if (!bookings) return;
+        if (!bookings) return;
 
-    for (const row of bookings) {
-        if (row.slots && Array.isArray(row.slots)) {
-            const updatedSlots = row.slots.filter(slotObj => Object.keys(slotObj)[0] !== key);
-            if (updatedSlots.length === 0) {
-                await supabase.from('bookings').delete().eq('id', row.id);
-            } else {
-                await supabase.from('bookings').update({ slots: updatedSlots }).eq('id', row.id);
+        for (const row of bookings) {
+            if (row.slots && Array.isArray(row.slots)) {
+                const updatedSlots = row.slots.filter(slotObj => Object.keys(slotObj)[0] !== key);
+                if (updatedSlots.length === 0) {
+                    await supabase.from('bookings').delete().eq('id', row.id);
+                } else {
+                    await supabase.from('bookings').update({ slots: updatedSlots }).eq('id', row.id);
+                }
+                window.showToast("Đã xóa đặt sân!");
+                renderAdminTable();
+                return;
             }
-            window.showToast("Đã xóa đặt sân!");
-            renderAdminTable();
-            return;
         }
+    } catch (err) {
+        console.error("Lỗi xóa slot sân:", err);
     }
 }
 
@@ -161,12 +173,17 @@ async function loadProducts() {
     const container = document.getElementById("productsList");
     if (!container) return;
     
-    const { data: products, error } = await supabase
-        .from('products')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-    if (error) console.error("Lỗi danh sách sản phẩm:", error);
+    let products = [];
+    try {
+        const { data, error } = await supabase
+            .from('products')
+            .select('*')
+            .order('created_at', { ascending: false });
+            
+        if (!error && data) products = data;
+    } catch (err) {
+        console.error("Lỗi sản phẩm:", err);
+    }
 
     let html = "";
     (products || []).forEach(product => {
@@ -209,25 +226,33 @@ window.updateProduct = async (id) => {
         return;
     }
     
-    const { error } = await supabase
-        .from('products')
-        .update({ stock: newStock, price: newPrice })
-        .eq('id', id);
+    try {
+        const { error } = await supabase
+            .from('products')
+            .update({ stock: newStock, price: newPrice })
+            .eq('id', id);
 
-    if (error) {
-        window.showToast("Cập nhật sản phẩm thất bại!", true);
-        return;
+        if (error) {
+            window.showToast("Cập nhật sản phẩm thất bại!", true);
+            return;
+        }
+
+        window.showToast("Cập nhật sản phẩm thành công!");
+        loadProducts();
+    } catch (err) {
+        console.error("Lỗi cập nhật sản phẩm:", err);
     }
-
-    window.showToast("Cập nhật sản phẩm thành công!");
-    loadProducts();
 };
 
 window.deleteProduct = async (id) => {
     if (confirm("Bạn có chắc muốn xóa sản phẩm này?")) {
-        await supabase.from('products').delete().eq('id', id);
-        window.showToast("Đã xóa sản phẩm!");
-        loadProducts();
+        try {
+            await supabase.from('products').delete().eq('id', id);
+            window.showToast("Đã xóa sản phẩm!");
+            loadProducts();
+        } catch (err) {
+            console.error("Lỗi xóa sản phẩm:", err);
+        }
     }
 };
 
@@ -247,48 +272,56 @@ async function addProduct() {
         return;
     }
     
-    const { error } = await supabase
-        .from('products')
-        .insert({
-            name: name,
-            category: category,
-            price: price,
-            stock: stock
-        });
+    try {
+        const { error } = await supabase
+            .from('products')
+            .insert({
+                name: name,
+                category: category,
+                price: price,
+                stock: stock
+            });
 
-    if (error) {
-        console.error("Lỗi thêm sản phẩm:", error);
-        window.showToast("Thêm sản phẩm thất bại!", true);
-        return;
+        if (error) {
+            console.error("Lỗi thêm sản phẩm:", error);
+            window.showToast("Thêm sản phẩm thất bại!", true);
+            return;
+        }
+        
+        window.showToast("Thêm sản phẩm thành công!");
+        if (nameInput) nameInput.value = "";
+        if (priceInput) priceInput.value = "";
+        if (stockInput) stockInput.value = "";
+        loadProducts();
+    } catch (err) {
+        console.error("Lỗi thêm sản phẩm:", err);
     }
-    
-    window.showToast("Thêm sản phẩm thành công!");
-    if (nameInput) nameInput.value = "";
-    if (priceInput) priceInput.value = "";
-    if (stockInput) stockInput.value = "";
-    loadProducts();
 }
 
 // ========== QUẢN LÝ ĐƠN HÀNG ==========
 async function checkNewOrders() {
-    const { data: orders } = await supabase
-        .from('orders')
-        .select('*')
-        .order('created_at', { ascending: false });
-    
-    let newCount = 0;
-    const now = new Date();
-    
-    (orders || []).forEach(order => {
-        const createdAt = new Date(order.created_at);
-        const diffMinutes = (now - createdAt) / (1000 * 60);
-        if (diffMinutes <= 30 && !order.admin_read) {
-            newCount++;
-        }
-    });
-    
-    unreadOrdersCount = newCount;
-    updateOrdersBadge();
+    try {
+        const { data: orders } = await supabase
+            .from('orders')
+            .select('*')
+            .order('created_at', { ascending: false });
+        
+        let newCount = 0;
+        const now = new Date();
+        
+        (orders || []).forEach(order => {
+            const createdAt = new Date(order.created_at);
+            const diffMinutes = (now - createdAt) / (1000 * 60);
+            if (diffMinutes <= 30 && !order.admin_read) {
+                newCount++;
+            }
+        });
+        
+        unreadOrdersCount = newCount;
+        updateOrdersBadge();
+    } catch (err) {
+        console.error("Lỗi kiểm tra đơn hàng mới:", err);
+    }
 }
 
 function updateOrdersBadge() {
@@ -307,12 +340,17 @@ async function loadOrders() {
     const container = document.getElementById("ordersList");
     if (!container) return;
     
-    const { data: orders, error } = await supabase
-        .from('orders')
-        .select('*')
-        .order('created_at', { ascending: false });
-        
-    if (error) console.error("Lỗi danh sách đơn hàng:", error);
+    let orders = [];
+    try {
+        const { data, error } = await supabase
+            .from('orders')
+            .select('*')
+            .order('created_at', { ascending: false });
+            
+        if (!error && data) orders = data;
+    } catch (err) {
+        console.error("Lỗi danh sách đơn hàng:", err);
+    }
 
     let html = "";
     (orders || []).forEach(order => {
@@ -348,34 +386,46 @@ async function loadOrders() {
 }
 
 window.markOrderRead = async (id) => {
-    await supabase.from('orders').update({ admin_read: true }).eq('id', id);
-    window.showToast("Đã đánh dấu đã xem!");
-    loadOrders();
-    checkNewOrders();
+    try {
+        await supabase.from('orders').update({ admin_read: true }).eq('id', id);
+        window.showToast("Đã đánh dấu đã xem!");
+        loadOrders();
+        checkNewOrders();
+    } catch (err) {
+        console.error("Lỗi đánh dấu xem đơn hàng:", err);
+    }
 };
 
 window.deleteOrder = async (id) => {
     if (confirm("Xóa đơn hàng này?")) {
-        await supabase.from('orders').delete().eq('id', id);
-        window.showToast("Đã xóa đơn hàng!");
-        loadOrders();
-        checkNewOrders();
+        try {
+            await supabase.from('orders').delete().eq('id', id);
+            window.showToast("Đã xóa đơn hàng!");
+            loadOrders();
+            checkNewOrders();
+        } catch (err) {
+            console.error("Lỗi xóa đơn hàng:", err);
+        }
     }
 };
 
 function startOrderListener() {
-    supabase
-        .channel('public:orders')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
-            if (window.adminLoggedIn) {
-                checkNewOrders();
-                const activeTab = document.querySelector('.admin-tab.active');
-                if (activeTab && activeTab.dataset.tab === "orders") {
-                    loadOrders();
+    try {
+        supabase
+            .channel('public:orders')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+                if (window.adminLoggedIn) {
+                    checkNewOrders();
+                    const activeTab = document.querySelector('.admin-tab.active');
+                    if (activeTab && activeTab.dataset.tab === "orders") {
+                        loadOrders();
+                    }
                 }
-            }
-        })
-        .subscribe();
+            })
+            .subscribe();
+    } catch (err) {
+        console.warn("Lỗi đăng ký realtime orders:", err);
+    }
 }
 
 // ========== THÔNG BÁO ĐẶT SÂN ==========
@@ -383,12 +433,17 @@ async function loadNotifications() {
     const notifList = document.getElementById("notificationPanel");
     if (!notifList) return;
     
-    const { data: notifications, error } = await supabase
-        .from('notifications')
-        .select('*')
-        .order('created_at', { ascending: false });
+    let notifications = [];
+    try {
+        const { data, error } = await supabase
+            .from('notifications')
+            .select('*')
+            .order('created_at', { ascending: false });
 
-    if (error) console.error("Lỗi thông báo:", error);
+        if (!error && data) notifications = data;
+    } catch (err) {
+        console.error("Lỗi thông báo:", err);
+    }
 
     let html = `<div style="padding: 12px; border-bottom: 1px solid #ddd; font-weight: bold;">📢 THÔNG BÁO ĐẶT SÂN</div>`;
     let count = 0;
@@ -420,35 +475,47 @@ async function loadNotifications() {
         el.onclick = async () => {
             const id = el.dataset.id;
             if (id) {
-                await supabase.from('notifications').update({ read: true }).eq('id', id);
-                loadNotifications();
+                try {
+                    await supabase.from('notifications').update({ read: true }).eq('id', id);
+                    loadNotifications();
+                } catch (err) {
+                    console.error("Lỗi đọc thông báo:", err);
+                }
             }
         };
     });
 }
 
 function startNotificationListener() {
-    supabase
-        .channel('public:notifications')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => {
-            if (window.adminLoggedIn) loadNotifications();
-        })
-        .subscribe();
+    try {
+        supabase
+            .channel('public:notifications')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => {
+                if (window.adminLoggedIn) loadNotifications();
+            })
+            .subscribe();
+    } catch (err) {
+        console.warn("Lỗi đăng ký realtime notifications:", err);
+    }
 }
 
 // ========== ADMIN AUTH ==========
 async function adminLogin() {
     const pwdInput = document.getElementById("adminPassword").value;
-    
-    const { data: settingData } = await supabase
-        .from('settings')
-        .select('value')
-        .eq('key', 'admin')
-        .maybeSingle();
-
     let correctPwd = "admin123";
-    if (settingData && settingData.value && settingData.value.password) {
-        correctPwd = settingData.value.password;
+
+    try {
+        const { data: settingData } = await supabase
+            .from('settings')
+            .select('value')
+            .eq('key', 'admin')
+            .maybeSingle();
+
+        if (settingData && settingData.value && settingData.value.password) {
+            correctPwd = settingData.value.password;
+        }
+    } catch (err) {
+        console.warn("Chưa lấy được mật khẩu từ settings, dùng mặc định:", err);
     }
     
     if (pwdInput === correctPwd) {
@@ -505,7 +572,7 @@ function initTabs() {
     });
 }
 
-window.onload = () => {
+function initAdminApp() {
     initDatePicker();
     initTabs();
     
@@ -526,4 +593,10 @@ window.onload = () => {
             }
         };
     }
-};
+}
+
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initAdminApp);
+} else {
+    initAdminApp();
+}

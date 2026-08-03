@@ -1,75 +1,75 @@
 <!DOCTYPE html>
 <html lang="vi">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Đặt sân cầu lông - Weplay</title>
     <link rel="stylesheet" href="style.css">
-    <script type="importmap">
-        {
-            "imports": {
-                "@supabase/supabase-js": "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm"
-            }
-        }
-    </script>
+
 </head>
+
 <body>
-<div class="container">
-    <div class="header">
-        <div class="header-left">
-            <a href="shop.html" class="shop-nav-btn">🛒 Shop Cầu Lông</a>
+    <div class="container">
+        <div class="header">
+            <div class="header-left">
+                <a href="shop.html" class="shop-nav-btn">🛒 Shop Cầu Lông</a>
+            </div>
+            <h1>🏸 Đặt Sân Cầu Lông</h1>
+            <div id="authButtons" class="auth-buttons">
+                <button id="showLoginBtn">Đăng nhập</button>
+                <button id="showRegisterBtn">Đăng ký</button>
+            </div>
+            <div id="userInfo" class="user-info" style="display:none">
+                <span>👤 <span id="userNameDisplay"></span></span>
+                <button id="logoutBtn">Đăng xuất</button>
+            </div>
         </div>
-        <h1>🏸 Đặt Sân Cầu Lông</h1>
-        <div id="authButtons" class="auth-buttons">
-            <button id="showLoginBtn">Đăng nhập</button>
-            <button id="showRegisterBtn">Đăng ký</button>
+
+        <div style="margin:15px 0; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+            <label>📅 Chọn ngày: <input type="date" id="datePicker"></label>
+            <button id="confirmBookingBtn">✅ Xác nhận đặt sân</button>
+            <button id="clearSelectionBtn" style="background:#ef4444;">🗑️ Bỏ chọn tất cả</button>
         </div>
-        <div id="userInfo" class="user-info" style="display:none">
-            <span>👤 <span id="userNameDisplay"></span></span>
-            <button id="logoutBtn">Đăng xuất</button>
+
+        <div id="customerTable"></div>
+    </div>
+
+    <!-- Modal đăng nhập -->
+    <div id="loginModal" class="modal">
+        <div class="modal-content">
+            <h3>🔐 Đăng nhập</h3>
+            <input id="loginPhone" placeholder="Số điện thoại">
+            <div style="position: relative;">
+                <input id="loginPwd" type="password" placeholder="Mật khẩu" style="padding-right: 50px; width: 100%;">
+                <button type="button" id="togglePasswordBtn"
+                    style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); background: none; border: none; font-size: 18px; cursor: pointer; padding: 5px 10px;">👁️</button>
+            </div>
+            <button id="loginSubmit">Đăng nhập</button>
+            <p>Chưa có tài khoản? <a href="#" id="gotoRegisterLink">Đăng ký ngay</a></p>
+            <button id="closeLoginModal">Đóng</button>
         </div>
     </div>
-    
-    <div style="margin:15px 0; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
-        <label>📅 Chọn ngày: <input type="date" id="datePicker"></label>
-        <button id="confirmBookingBtn">✅ Xác nhận đặt sân</button>
-        <button id="clearSelectionBtn" style="background:#ef4444;">🗑️ Bỏ chọn tất cả</button>
-    </div>
-    
-    <div id="customerTable"></div>
-</div>
 
-<!-- Modal đăng nhập -->
-<div id="loginModal" class="modal">
-    <div class="modal-content">
-        <h3>🔐 Đăng nhập</h3>
-        <input id="loginPhone" placeholder="Số điện thoại">
-        <div style="position: relative;">
-            <input id="loginPwd" type="password" placeholder="Mật khẩu" style="padding-right: 50px; width: 100%;">
-            <button type="button" id="togglePasswordBtn" style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); background: none; border: none; font-size: 18px; cursor: pointer; padding: 5px 10px;">👁️</button>
+    <!-- Modal đăng ký -->
+    <div id="registerModal" class="modal">
+        <div class="modal-content">
+            <h3>📝 Đăng ký</h3>
+            <input id="regName" placeholder="Biệt danh">
+            <input id="regPhone" placeholder="Số điện thoại (10-11 số)">
+            <input id="regPwd" type="password" placeholder="Mật khẩu (6+ ký tự, gồm chữ và số)">
+            <input id="regConfirmPwd" type="password" placeholder="Nhập lại mật khẩu">
+            <button id="registerSubmit">Đăng ký</button>
+            <p>Đã có tài khoản? <a href="#" id="gotoLoginLink">Đăng nhập</a></p>
+            <button id="closeRegisterModal">Đóng</button>
         </div>
-        <button id="loginSubmit">Đăng nhập</button>
-        <p>Chưa có tài khoản? <a href="#" id="gotoRegisterLink">Đăng ký ngay</a></p>
-        <button id="closeLoginModal">Đóng</button>
     </div>
-</div>
 
-<!-- Modal đăng ký -->
-<div id="registerModal" class="modal">
-    <div class="modal-content">
-        <h3>📝 Đăng ký</h3>
-        <input id="regName" placeholder="Biệt danh">
-        <input id="regPhone" placeholder="Số điện thoại (10-11 số)">
-        <input id="regPwd" type="password" placeholder="Mật khẩu (6+ ký tự, gồm chữ và số)">
-        <input id="regConfirmPwd" type="password" placeholder="Nhập lại mật khẩu">
-        <button id="registerSubmit">Đăng ký</button>
-        <p>Đã có tài khoản? <a href="#" id="gotoLoginLink">Đăng nhập</a></p>
-        <button id="closeRegisterModal">Đóng</button>
-    </div>
-</div>
+    <div id="toastMsg" class="toast"></div>
 
-<div id="toastMsg" class="toast"></div>
-
-<script type="module" src="script.js"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+    <script src="supabaseClient.js"></script>
+    <script src="script.js"></script>
 </body>
+
 </html>
